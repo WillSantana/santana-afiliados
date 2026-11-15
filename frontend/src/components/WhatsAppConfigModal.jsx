@@ -1,79 +1,126 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Icon } from './Icons';
+
+let nextLocalGroupKey = 0;
+const groupKey = (group) => group.id ?? group._uiKey ?? group.name;
+const withUiKey = (group) => ({
+  ...group,
+  _uiKey: group._uiKey || (group.id != null ? `server-${group.id}` : `local-${++nextLocalGroupKey}`),
+});
+const toApiGroup = ({ name, jid, role }) => ({ name: name.trim(), jid: jid?.trim() || null, role });
 
 export default function WhatsAppConfigModal({
   isOpen,
   onClose,
-  phoneNumber,
-  onSavePhoneNumber,
   groups,
   onSaveGroups,
   activeGroupId,
   onSelectActiveGroup,
 }) {
-  const [phone, setPhone] = useState(phoneNumber || '');
   const [groupList, setGroupList] = useState(groups || []);
   const [newGroupName, setNewGroupName] = useState('');
   const [newGroupId, setNewGroupId] = useState('');
+  const [newGroupRole, setNewGroupRole] = useState('destination');
   const [showAddForm, setShowAddForm] = useState(false);
-  const [showQRCodeHelp, setShowQRCodeHelp] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+  const [hasChanges, setHasChanges] = useState(false);
+
+  useEffect(() => {
+    if (isOpen) {
+      setGroupList((groups || []).map(withUiKey));
+      setError('');
+      setHasChanges(false);
+    }
+  }, [groups, isOpen]);
 
   if (!isOpen) return null;
 
-  const handleSavePhone = (e) => {
-    e.preventDefault();
-    onSavePhoneNumber(phone.trim());
+  const saveGroups = async (updated) => {
+    setSaving(true);
+    setError('');
+    try {
+      const saved = await onSaveGroups(updated.map(toApiGroup));
+      setGroupList((saved || []).map(withUiKey));
+      setHasChanges(false);
+      return true;
+    } catch (saveError) {
+      setError(saveError.message);
+      return false;
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const handleAddGroup = (e) => {
-    e.preventDefault();
-    if (!newGroupName.trim()) return;
-
-    const finalId = newGroupId.trim();
-    if (!/^\d+@g\.us$/.test(finalId)) {
-      alert('Informe o ID real do grupo no formato 123456789@g.us.');
+  const handleAddGroup = (event) => {
+    event.preventDefault();
+    const name = newGroupName.trim();
+    const jid = newGroupId.trim();
+    if (!name) return;
+    if (newGroupRole === 'destination' && !/^[\d-]+@g\.us$/.test(jid)) {
+      setError('Informe um JID válido para o grupo de destino, por exemplo 123456789@g.us.');
       return;
     }
-
+    if (jid && !/^[\d-]+@g\.us$/.test(jid)) {
+      setError('O JID deve estar no formato 123456789@g.us.');
+      return;
+    }
+    if (groupList.some((group) => group.jid && group.jid === jid)) {
+      setError('Este JID já está cadastrado.');
+      return;
+    }
     const updated = [
       ...groupList,
-      { id: finalId, name: newGroupName.trim(), isDefault: groupList.length === 0 },
+      withUiKey({ name, jid: jid || null, role: newGroupRole }),
     ];
     setGroupList(updated);
-    onSaveGroups(updated);
+    setHasChanges(true);
+    setError('');
     setNewGroupName('');
     setNewGroupId('');
     setShowAddForm(false);
   };
 
-  const handleRemoveGroup = (idToRemove) => {
-    if (groupList.length <= 1) {
-      alert('Você precisa manter pelo menos 1 grupo cadastrado.');
-      return;
-    }
-    const updated = groupList.filter((g) => g.id !== idToRemove);
+  const handleRemoveGroup = (groupToRemove) => {
+    const updated = groupList.filter((group) => groupKey(group) !== groupKey(groupToRemove));
     setGroupList(updated);
-    onSaveGroups(updated);
-    if (activeGroupId === idToRemove && updated.length > 0) {
-      onSelectActiveGroup(updated[0].id);
+    setHasChanges(true);
+    if (activeGroupId === groupToRemove.jid) {
+      const nextDestination = updated.find((group) => group.role === 'destination' && group.jid);
+      onSelectActiveGroup(nextDestination?.jid || '');
     }
   };
 
-  const handleSetDefault = (id) => {
-    const updated = groupList.map((g) => ({
-      ...g,
-      isDefault: g.id === id,
-    }));
+  const handleChangeRole = (group, role) => {
+    const updated = groupList.map((item) => (
+      groupKey(item) === groupKey(group) ? { ...item, role } : item
+    ));
     setGroupList(updated);
-    onSaveGroups(updated);
-    onSelectActiveGroup(id);
+    setHasChanges(true);
+    setError('');
+  };
+
+  const handleUpdateGroup = (group, changes) => {
+    const updated = groupList.map((item) => (
+      groupKey(item) === groupKey(group) ? { ...item, ...changes } : item
+    ));
+    setGroupList(updated);
+    setHasChanges(true);
+    setError('');
+  };
+
+  const handleClose = () => {
+    if (hasChanges && !window.confirm('Há alterações de grupos que ainda não foram salvas. Deseja descartá-las?')) {
+      return;
+    }
+    onClose();
   };
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-overlay" onClick={handleClose}>
       <div
         className="modal-content modern-card"
-        onClick={(e) => e.stopPropagation()}
+        onClick={(event) => event.stopPropagation()}
         style={{ maxWidth: '620px', maxHeight: '90vh', overflowY: 'auto' }}
       >
         <div className="modal-header">
@@ -82,198 +129,179 @@ export default function WhatsAppConfigModal({
               <Icon name="whatsapp" size={22} />
             </span>
             <div>
-              <h3>Configuração do WhatsApp & Grupos</h3>
+              <h3>Grupos do WhatsApp</h3>
               <p className="modal-subtitle">
-                Defina o seu número de WhatsApp e escolha os grupos onde as ofertas serão enviadas.
+                Cadastre as origens monitoradas e todos os destinos das ofertas.
               </p>
             </div>
           </div>
-          <button className="modal-close-btn" onClick={onClose}>
+          <button className="modal-close-btn" onClick={handleClose} aria-label="Fechar">
             <Icon name="x" size={18} />
           </button>
         </div>
 
-        <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-          {/* Seção 1: Número de Telefone do WhatsApp */}
-          <div className="config-section-card" style={{ background: '#f8fafc', padding: '1rem', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem' }}>
-              <h4 style={{ margin: 0, fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Icon name="zap" size={16} color="#3b82f6" />
-                Seu Número / Celular Conectado
-              </h4>
-              <button
-                type="button"
-                className="btn-text-action"
-                onClick={() => setShowQRCodeHelp(!showQRCodeHelp)}
-                style={{ fontSize: '0.8rem' }}
-              >
-                <Icon name="info" size={13} />
-                Como ler o QR Code?
-              </button>
-            </div>
-
-            {showQRCodeHelp && (
-              <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '8px', padding: '0.75rem', fontSize: '0.82rem', marginBottom: '0.75rem', color: '#1e3a8a', lineHeight: 1.5 }}>
-                <strong>Como funciona a conexão via QR Code:</strong>
-                <ol style={{ paddingLeft: '1.2rem', margin: '0.4rem 0 0' }}>
-                  <li>O WhatsApp não conecta apenas digitando o número; ele exige leitura de <strong>QR Code</strong> (como no WhatsApp Web).</li>
-                  <li>Quando a Evolution API estiver rodando no Docker, abra <code>http://localhost:8080/instance/connect/santana-bot</code>.</li>
-                  <li>No seu celular, abra <strong>WhatsApp &gt; Aparelhos Conectados &gt; Conectar Aparelho</strong> e aponte para o QR Code.</li>
-                  <li>Pronto! Todas as mensagens serão enviadas a partir desse seu número.</li>
-                </ol>
-              </div>
-            )}
-
-            <form onSubmit={handleSavePhone} style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-              <input
-                type="text"
-                className="modern-input"
-                placeholder="Ex: +55 (DDD) 9XXXX-XXXX"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                style={{ flex: 1 }}
-              />
-              <button type="submit" className="btn-secondary" style={{ whiteSpace: 'nowrap' }}>
-                <Icon name="check" size={14} />
-                Salvar Número
-              </button>
-            </form>
-            <span style={{ fontSize: '0.75rem', color: '#64748b', display: 'block', marginTop: '4px' }}>
-              Identificador do aparelho transmissor para controle e logs do sistema.
-            </span>
-          </div>
-
-          {/* Seção 2: Grupos de WhatsApp Cadastrados */}
-          <div className="config-section-card" style={{ background: '#f8fafc', padding: '1rem', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
+        <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+          <section style={{ background: '#f8fafc', padding: '1rem', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
-              <h4 style={{ margin: 0, fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Icon name="users" size={16} color="#16a34a" />
-                Grupos de Ofertas Autorizados ({groupList.length})
-              </h4>
+              <h4 style={{ margin: 0 }}>Grupos cadastrados ({groupList.length})</h4>
               <button
                 type="button"
                 className="btn-text-action"
-                onClick={() => setShowAddForm(!showAddForm)}
-                style={{ fontSize: '0.8rem', fontWeight: 600 }}
+                onClick={() => {
+                  setError('');
+                  setShowAddForm(!showAddForm);
+                }}
               >
                 <Icon name={showAddForm ? 'x' : 'plus'} size={13} />
-                {showAddForm ? 'Cancelar' : '+ Adicionar Novo Grupo'}
+                {showAddForm ? 'Cancelar' : 'Adicionar grupo'}
               </button>
             </div>
+            <p style={{ marginTop: 0, color: '#64748b', fontSize: '0.8rem' }}>
+              Use o nome exatamente como aparece no WhatsApp para as origens; o JID é opcional nelas e obrigatório nos destinos.
+            </p>
+            {hasChanges && (
+              <p style={{ marginTop: 0, color: '#b45309', fontSize: '0.8rem' }}>
+                Há alterações não salvas.
+              </p>
+            )}
 
-            {/* Formulário para Adicionar Grupo */}
             {showAddForm && (
-              <form onSubmit={handleAddGroup} style={{ background: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '8px', padding: '0.75rem', marginBottom: '1rem' }}>
-                <div style={{ marginBottom: '0.5rem' }}>
-                  <label style={{ fontSize: '0.8rem', fontWeight: 600, color: '#334155', display: 'block', marginBottom: '3px' }}>
-                    Nome Amigável do Grupo
-                  </label>
+              <form onSubmit={handleAddGroup} style={{ background: '#fff', border: '1px solid #cbd5e1', borderRadius: '8px', padding: '0.75rem', marginBottom: '1rem' }}>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.8rem', fontWeight: 600 }}>
+                  Nome do grupo
                   <input
                     type="text"
                     required
                     className="modern-input"
-                    placeholder="Ex: 🔥 Achadinhos VIP • Grupo 1"
+                    placeholder="Ex.: Santana_Indica"
                     value={newGroupName}
-                    onChange={(e) => setNewGroupName(e.target.value)}
+                    onChange={(event) => setNewGroupName(event.target.value)}
                   />
-                </div>
-                <div style={{ marginBottom: '0.75rem' }}>
-                  <label style={{ fontSize: '0.8rem', fontWeight: 600, color: '#334155', display: 'block', marginBottom: '3px' }}>
-                    ID real do Grupo / JID
-                  </label>
+                </label>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.8rem', fontWeight: 600 }}>
+                  JID do grupo
                   <input
                     type="text"
                     className="modern-input"
-                    placeholder="Ex: 123456789@g.us"
+                    placeholder={newGroupRole === 'destination' ? '123456789@g.us' : 'Opcional para a origem'}
                     value={newGroupId}
-                    onChange={(e) => setNewGroupId(e.target.value)}
+                    onChange={(event) => setNewGroupId(event.target.value)}
                   />
-                  <span style={{ fontSize: '0.73rem', color: '#64748b' }}>
-                    * Informe o JID real do grupo fornecido pelo gateway do WhatsApp.
-                  </span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
-                  <button type="button" className="btn-secondary" onClick={() => setShowAddForm(false)}>
-                    Cancelar
-                  </button>
-                  <button type="submit" className="btn-primary">
-                    <Icon name="check" size={14} />
-                    Cadastrar Grupo
-                  </button>
-                </div>
+                </label>
+                <label style={{ display: 'block', marginBottom: '0.75rem', fontSize: '0.8rem', fontWeight: 600 }}>
+                  Uso do grupo
+                  <select
+                    className="modern-input"
+                    value={newGroupRole}
+                    onChange={(event) => setNewGroupRole(event.target.value)}
+                  >
+                    <option value="destination">Destino — receberá as ofertas</option>
+                    <option value="source">Origem — grupo monitorado</option>
+                  </select>
+                </label>
+                <button type="submit" className="btn-primary" disabled={saving}>
+                  <Icon name="check" size={14} />
+                  {saving ? 'Salvando...' : 'Salvar grupo'}
+                </button>
               </form>
             )}
 
-            {/* Lista dos Grupos */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-              {groupList.map((g) => {
-                const isSelected = activeGroupId === g.id;
+              {groupList.map((group) => {
+                const isActive = group.jid && activeGroupId === group.jid;
                 return (
                   <div
-                    key={g.id}
+                    key={groupKey(group)}
                     style={{
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'space-between',
+                      gap: '0.75rem',
                       padding: '0.65rem 0.85rem',
-                      background: isSelected ? '#f0fdf4' : '#ffffff',
-                      border: isSelected ? '1.5px solid #22c55e' : '1px solid #e2e8f0',
+                      background: isActive ? '#f0fdf4' : '#fff',
+                      border: isActive ? '1.5px solid #22c55e' : '1px solid #e2e8f0',
                       borderRadius: '8px',
-                      transition: 'all 0.15s ease',
                     }}
                   >
-                    <div style={{ flex: 1 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span style={{ fontWeight: 600, fontSize: '0.9rem', color: '#0f172a' }}>{g.name}</span>
-                        {isSelected && (
-                          <span className="pill pill-approved" style={{ fontSize: '0.7rem', padding: '1px 7px' }}>
-                            ✓ Grupo Ativo
-                          </span>
-                        )}
-                        {g.isDefault && (
-                          <span className="pill" style={{ fontSize: '0.7rem', padding: '1px 7px', background: '#e0e7ff', color: '#4338ca' }}>
-                            Padrão
-                          </span>
-                        )}
-                      </div>
-                      <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '2px', fontFamily: 'monospace' }}>
-                        JID: {g.id}
-                      </div>
+                    <div style={{ flex: 1, minWidth: 0, display: 'grid', gap: '0.25rem' }}>
+                      <input
+                        type="text"
+                        aria-label={`Nome do grupo ${group.name}`}
+                        className="modern-input"
+                        value={group.name}
+                        disabled={saving}
+                        onChange={(event) => handleUpdateGroup(group, { name: event.target.value })}
+                        style={{ padding: '0.35rem 0.5rem' }}
+                      />
+                      <input
+                        type="text"
+                        aria-label={`JID do grupo ${group.name}`}
+                        className="modern-input"
+                        placeholder="123456789@g.us"
+                        value={group.jid || ''}
+                        disabled={saving}
+                        onChange={(event) => handleUpdateGroup(group, { jid: event.target.value })}
+                        style={{ padding: '0.35rem 0.5rem', fontFamily: 'monospace' }}
+                      />
                     </div>
-
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                      {!isSelected && (
-                        <button
-                          type="button"
-                          className="btn-action"
-                          onClick={() => handleSetDefault(g.id)}
-                          style={{ fontSize: '0.78rem', padding: '4px 10px' }}
-                          title="Definir como grupo ativo principal"
-                        >
-                          Selecionar
-                        </button>
-                      )}
+                    <select
+                      aria-label={`Uso do grupo ${group.name}`}
+                      className="modern-input"
+                      value={group.role}
+                      disabled={saving}
+                      onChange={(event) => handleChangeRole(group, event.target.value)}
+                      style={{ width: '170px', padding: '0.35rem' }}
+                    >
+                      <option value="source">Origem monitorada</option>
+                      <option value="destination">Destino de publicação</option>
+                    </select>
+                    {group.role === 'destination' && group.jid && !isActive && (
                       <button
                         type="button"
-                        onClick={() => handleRemoveGroup(g.id)}
-                        className="btn-action btn-reject"
-                        style={{ padding: '4px 8px' }}
-                        title="Remover grupo da lista"
+                        className="btn-action"
+                        onClick={() => onSelectActiveGroup(group.jid)}
+                        title="Usar este grupo para a mensagem de teste"
                       >
-                        <Icon name="trash" size={13} />
+                        Teste
                       </button>
-                    </div>
+                    )}
+                    {isActive && <span className="pill pill-approved">Teste</span>}
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveGroup(group)}
+                      className="btn-action btn-reject"
+                      disabled={saving}
+                      title="Remover grupo"
+                    >
+                      <Icon name="trash" size={13} />
+                    </button>
                   </div>
                 );
               })}
+              {!groupList.length && <p style={{ color: '#64748b' }}>Nenhum grupo cadastrado.</p>}
             </div>
-          </div>
+            {error && (
+              <p role="alert" style={{ color: '#b91c1c', marginBottom: 0 }}>{error}</p>
+            )}
+          </section>
+
+          <p style={{ margin: 0, color: '#92400e', fontSize: '0.82rem' }}>
+            O monitor percorre as origens em sequência a cada ciclo e envia ofertas novas a todos os destinos. Ao adicionar uma origem com o monitor ativo, as mensagens que já estão nela são registradas como histórico e ignoradas.
+          </p>
         </div>
 
         <div className="modal-footer" style={{ marginTop: '1.25rem' }}>
-          <button type="button" className="btn-primary" onClick={onClose} style={{ width: '100%' }}>
+          <button
+            type="button"
+            className="btn-secondary"
+            onClick={() => saveGroups(groupList)}
+            disabled={saving || !hasChanges}
+          >
+            {saving ? 'Salvando...' : 'Salvar grupos'}
+          </button>
+          <button type="button" className="btn-primary" onClick={handleClose} style={{ width: '100%' }}>
             <Icon name="check" size={16} />
-            Concluir & Voltar à Central
+            Concluir
           </button>
         </div>
       </div>

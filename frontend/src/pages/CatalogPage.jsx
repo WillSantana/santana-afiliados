@@ -25,6 +25,7 @@ export default function CatalogPage({
 
   // Categorias
   const categories = [
+    { id: 'other', label: 'Outros' },
     { id: '', label: 'Todas as Categorias' },
     { id: 'technology', label: 'Tecnologia' },
     { id: 'fashion', label: 'Moda' },
@@ -125,7 +126,7 @@ export default function CatalogPage({
             <Icon name="catalog" size={22} />
           </div>
           <div className="kpi-info">
-            <span className="kpi-label">Total Prospectado</span>
+            <span className="kpi-label">Ofertas registradas</span>
             <span className="kpi-value">{stats.total}</span>
           </div>
         </div>
@@ -192,7 +193,7 @@ export default function CatalogPage({
             <input
               type="text"
               className="search-box-input"
-              placeholder="Buscar título ou MLB ID..."
+              placeholder="Filtrar por título ou ID..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
@@ -256,7 +257,7 @@ export default function CatalogPage({
             <Icon name="search" size={32} />
           </div>
           <h3>Nenhuma oferta encontrada</h3>
-          <p>Tente ajustar os filtros de categoria e status ou faça uma nova busca no Mercado Livre.</p>
+          <p>Tente ajustar os filtros ou aguarde novas ofertas encaminhadas pelo monitor do WhatsApp.</p>
           <button
             type="button"
             className="btn-secondary"

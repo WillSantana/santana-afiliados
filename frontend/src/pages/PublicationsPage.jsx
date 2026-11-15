@@ -4,8 +4,6 @@ import { Icon } from '../components/Icons';
 import { useToast } from '../components/Toast';
 import WhatsAppConfigModal from '../components/WhatsAppConfigModal';
 
-const INITIAL_GROUPS = [];
-
 export default function PublicationsPage() {
   const { addToast } = useToast();
   const [publications, setPublications] = useState([]);
@@ -16,33 +14,27 @@ export default function PublicationsPage() {
   const [dispatchingNext, setDispatchingNext] = useState(false);
   const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
 
-  // Estado do número e grupos de WhatsApp
-  const [phoneNumber, setPhoneNumber] = useState(() => {
-    return localStorage.getItem('santana_whatsapp_phone') || '';
-  });
-
-  const [groups, setGroups] = useState(() => {
-    try {
-      const saved = JSON.parse(localStorage.getItem('santana_whatsapp_groups'));
-      if (Array.isArray(saved) && saved.length > 0) return saved;
-    } catch {}
-    return INITIAL_GROUPS;
-  });
+  const [groups, setGroups] = useState([]);
 
   const [activeGroupId, setActiveGroupId] = useState(() => {
-    return localStorage.getItem('santana_active_group_id') || groups[0]?.id || '';
+    return localStorage.getItem('santana_active_group_id') || '';
   });
 
-  const handleSavePhoneNumber = (newPhone) => {
-    setPhoneNumber(newPhone);
-    localStorage.setItem('santana_whatsapp_phone', newPhone);
-    addToast('Número de WhatsApp atualizado com sucesso!', 'success');
-  };
-
-  const handleSaveGroups = (newGroups) => {
-    setGroups(newGroups);
-    localStorage.setItem('santana_whatsapp_groups', JSON.stringify(newGroups));
-    addToast('Lista de grupos de WhatsApp atualizada!', 'success');
+  const handleSaveGroups = async (newGroups) => {
+    try {
+      const saved = await api.saveWhatsAppGroups(newGroups);
+      setGroups(saved.groups || []);
+      if (!saved.groups?.some((group) => group.jid === activeGroupId && group.role === 'destination')) {
+        handleSelectActiveGroup(
+          saved.groups?.find((group) => group.role === 'destination' && group.jid)?.jid || '',
+        );
+      }
+      addToast('Grupos do WhatsApp atualizados!', 'success');
+      return saved.groups || [];
+    } catch (err) {
+      addToast(`Não foi possível salvar os grupos: ${err.message}`, 'error');
+      throw err;
+    }
   };
 
   const handleSelectActiveGroup = (id) => {
@@ -67,8 +59,25 @@ export default function PublicationsPage() {
     }
   };
 
+  const fetchGroups = async () => {
+    try {
+      const config = await api.getWhatsAppGroups();
+      const configuredGroups = config.groups || [];
+      setGroups(configuredGroups);
+      if (!configuredGroups.some((group) => group.jid === activeGroupId && group.role === 'destination')) {
+        const firstDestination = configuredGroups.find(
+          (group) => group.role === 'destination' && group.jid,
+        );
+        handleSelectActiveGroup(firstDestination?.jid || '');
+      }
+    } catch (err) {
+      addToast(`Erro ao carregar grupos do WhatsApp: ${err.message}`, 'error');
+    }
+  };
+
   useEffect(() => {
     fetchPublicationsAndConfig();
+    fetchGroups();
   }, []);
 
   const handleCopy = (id, text) => {
@@ -97,9 +106,16 @@ export default function PublicationsPage() {
   const handleDispatchNext = async () => {
     setDispatchingNext(true);
     try {
-      const res = await api.dispatchNextOffer(activeGroupId);
-      addToast(res.message || 'Próxima oferta disparada com sucesso!', 'success');
-      fetchPublicationsAndConfig();
+      const res = await api.dispatchNextOffer();
+      if (res.partial) {
+        addToast(res.message || 'A publicação foi enviada parcialmente; não tente reenviar sem conferir os grupos.', 'error');
+        fetchPublicationsAndConfig();
+      } else if (res.dispatched === false) {
+        addToast(res.message, 'info');
+      } else {
+        addToast(res.message || 'Próxima oferta disparada com sucesso!', 'success');
+        fetchPublicationsAndConfig();
+      }
     } catch (err) {
       addToast(`Não foi possível disparar: ${err.message}`, 'error');
     } finally {
@@ -109,7 +125,7 @@ export default function PublicationsPage() {
 
   const isEnabled = whatsappConfig?.enabled;
   const gatewayName = (whatsappConfig?.gateway_type || 'evolution').toUpperCase();
-  const currentGroupObj = groups.find((g) => g.id === activeGroupId) || groups[0];
+  const testGroups = groups.filter((group) => group.role === 'destination' && group.jid);
 
   return (
     <div className="publications-wrapper">
@@ -136,7 +152,7 @@ export default function PublicationsPage() {
             className="btn-primary"
             onClick={handleDispatchNext}
             disabled={dispatchingNext}
-            title="Envia a próxima oferta aprovada da fila para o grupo selecionado"
+            title="Envia a próxima oferta para todos os grupos cadastrados como destino"
           >
             <Icon name="zap" size={16} />
             <span>{dispatchingNext ? 'Disparando...' : 'Disparar Próxima'}</span>
@@ -156,12 +172,9 @@ export default function PublicationsPage() {
               <span className={`pill ${isEnabled ? 'pill-approved' : 'pill-pending'}`}>
                 {isEnabled ? '🟢 Envio Real Ativo' : '🟡 Modo Simulação / Local'}
               </span>
-              <span style={{ fontSize: '0.8rem', color: '#64748b', display: 'inline-flex', alignItems: 'center', gap: '4px', marginLeft: '6px' }}>
-                📱 <strong>{phoneNumber}</strong>
-              </span>
             </div>
             <div className="gateway-meta-row" style={{ marginTop: '4px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ fontWeight: 600, color: '#334155' }}>Grupo Ativo:</span>
+              <span style={{ fontWeight: 600, color: '#334155' }}>Grupo do teste:</span>
               <select
                 className="modern-input"
                 style={{
@@ -178,15 +191,16 @@ export default function PublicationsPage() {
                 value={activeGroupId}
                 onChange={(e) => handleSelectActiveGroup(e.target.value)}
               >
-                {groups.map((g) => (
-                  <option key={g.id} value={g.id}>
+                {!testGroups.length && <option value="">Cadastre um destino com JID</option>}
+                {testGroups.map((g) => (
+                  <option key={g.id || g.jid} value={g.jid}>
                     {g.name}
                   </option>
                 ))}
               </select>
               <span>•</span>
               <span style={{ fontSize: '0.78rem', color: '#64748b' }}>
-                JID: <code>{activeGroupId}</code>
+                As ofertas serão enviadas para todos os grupos cadastrados como destino.
               </span>
             </div>
           </div>
@@ -198,10 +212,10 @@ export default function PublicationsPage() {
             className="btn-secondary"
             onClick={() => setIsConfigModalOpen(true)}
             style={{ fontSize: '0.82rem', padding: '6px 12px' }}
-            title="Cadastrar novos grupos ou alterar seu número transmissor"
+            title="Adicionar, remover ou trocar os grupos do WhatsApp"
           >
             <Icon name="settings" size={15} />
-            <span>Configurar Grupos & Número</span>
+            <span>Configurar Grupos</span>
           </button>
           <button
             type="button"
@@ -287,8 +301,6 @@ export default function PublicationsPage() {
       <WhatsAppConfigModal
         isOpen={isConfigModalOpen}
         onClose={() => setIsConfigModalOpen(false)}
-        phoneNumber={phoneNumber}
-        onSavePhoneNumber={handleSavePhoneNumber}
         groups={groups}
         onSaveGroups={handleSaveGroups}
         activeGroupId={activeGroupId}

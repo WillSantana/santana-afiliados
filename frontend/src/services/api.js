@@ -55,39 +55,6 @@ export const api = {
     body: JSON.stringify({ affiliate_url: affiliateUrl }),
   }),
 
-  // Motor de Automação & Monitoramento (V1.2)
-  getAutomationConfig: () => request('/automation/config/'),
-  updateAutomationConfig: (data) => request('/automation/config/', {
-    method: 'PATCH',
-    body: JSON.stringify(data),
-  }),
-  getSearchRuns: (params = {}) => {
-    const query = new URLSearchParams(params).toString();
-    return request(`/automation/runs/${query ? `?${query}` : ''}`);
-  },
-  getPriceAlerts: (params = {}) => {
-    const query = new URLSearchParams(params).toString();
-    return request(`/automation/alerts/${query ? `?${query}` : ''}`);
-  },
-  acknowledgeAlert: (alertId) => request(`/automation/alerts/${alertId}/acknowledge/`, {
-    method: 'POST',
-  }),
-  getProductPriceHistory: (productId) => request(`/automation/products/${productId}/price-history/`),
-  triggerSearchCycle: (cycleIndex = 0) => request('/automation/run-search/', {
-    method: 'POST',
-    body: JSON.stringify({ cycle_index: cycleIndex }),
-  }),
-  triggerPriceMonitoring: (limit = 40) => request('/automation/run-monitor/', {
-    method: 'POST',
-    body: JSON.stringify({ limit }),
-  }),
-
-  // Busca e Ingestão Manual Mercado Livre
-  runSearch: (payload = {}) => request('/search/run/', {
-    method: 'POST',
-    body: JSON.stringify(payload),
-  }),
-
   // Publicações Promocionais & WhatsApp Dispatch
   getPublications: (params = {}) => {
     const query = new URLSearchParams(params).toString();
@@ -102,6 +69,11 @@ export const api = {
     body: JSON.stringify({ group_id: groupId || undefined }),
   }),
   getWhatsAppConfig: () => request('/publications/whatsapp-config/'),
+  getWhatsAppGroups: () => request('/publications/whatsapp-groups/'),
+  saveWhatsAppGroups: (groups) => request('/publications/whatsapp-groups/', {
+    method: 'PUT',
+    body: JSON.stringify({ groups }),
+  }),
   testWhatsAppConnection: (groupId = '') => request('/publications/test-whatsapp/', {
     method: 'POST',
     body: JSON.stringify({ group_id: groupId || undefined }),
@@ -110,6 +82,7 @@ export const api = {
     method: 'POST',
     body: JSON.stringify({ group_id: groupId || undefined }),
   }),
+  getIncomingOffers: () => request('/publications/incoming-offers/'),
 
   // Campanhas
   getCampaigns: () => request('/campaigns/'),

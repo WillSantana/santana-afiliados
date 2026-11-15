@@ -1,111 +1,83 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { api } from '../services/api';
+import WhatsAppConfigModal from '../components/WhatsAppConfigModal';
+
+const statusLabels = {
+  ignored: 'Já existia ao iniciar',
+  pending: 'Na fila',
+  processing: 'Processando',
+  published: 'Publicada',
+  skipped: 'Ignorada',
+  failed: 'Falha antes do envio',
+  uncertain: 'Envio incerto',
+};
+
+const statusColors = {
+  published: '#166534',
+  pending: '#1d4ed8',
+  processing: '#7c3aed',
+  failed: '#b91c1c',
+  uncertain: '#b45309',
+};
 
 export default function AutomationPage() {
-  const [config, setConfig] = useState(null);
-  const [runs, setRuns] = useState([]);
-  const [alerts, setAlerts] = useState([]);
+  const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [actionLoading, setActionLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [groups, setGroups] = useState([]);
+  const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
 
-  const loadData = async () => {
+  const loadGroups = useCallback(async () => {
     try {
-      const [cfgData, runsData, alertsData] = await Promise.all([
-        api.getAutomationConfig(),
-        api.getSearchRuns(),
-        api.getPriceAlerts(),
-      ]);
-      setConfig(cfgData);
-      setRuns(runsData.results || runsData);
-      setAlerts(alertsData.results || alertsData);
+      const config = await api.getWhatsAppGroups();
+      setGroups(config.groups || []);
     } catch (err) {
-      console.error(err);
+      setError(err.message);
+    }
+  }, []);
+
+  const loadData = useCallback(async () => {
+    try {
+      setError('');
+      setData(await api.getIncomingOffers());
+    } catch (err) {
+      setError(err.message);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     loadData();
-  }, []);
+    loadGroups();
+    const timer = window.setInterval(loadData, 10000);
+    return () => window.clearInterval(timer);
+  }, [loadData, loadGroups]);
 
-  const handleToggleSearches = async () => {
-    if (!config) return;
-    try {
-      const updated = await api.updateAutomationConfig({
-        searches_enabled: !config.searches_enabled,
-      });
-      setConfig(updated);
-    } catch (err) {
-      alert(`Erro: ${err.message}`);
-    }
+  const handleSaveGroups = async (updatedGroups) => {
+    const saved = await api.saveWhatsAppGroups(updatedGroups);
+    setGroups(saved.groups || []);
+    await loadData();
+    return saved.groups || [];
   };
 
-  const handleToggleMonitoring = async () => {
-    if (!config) return;
-    try {
-      const updated = await api.updateAutomationConfig({
-        price_monitoring_enabled: !config.price_monitoring_enabled,
-      });
-      setConfig(updated);
-    } catch (err) {
-      alert(`Erro: ${err.message}`);
-    }
-  };
-
-  const handleTriggerSearch = async () => {
-    setActionLoading(true);
-    try {
-      const res = await api.triggerSearchCycle(0);
-      alert('Ciclo de pesquisa concluído com sucesso!');
-      await loadData();
-    } catch (err) {
-      alert(`Falha no ciclo de busca: ${err.message}`);
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  const handleTriggerMonitor = async () => {
-    setActionLoading(true);
-    try {
-      const res = await api.triggerPriceMonitoring(40);
-      alert(`Ciclo de monitoramento concluído! Verificados: ${res.checked_count}, Novos alertas: ${res.alerts_count}`);
-      await loadData();
-    } catch (err) {
-      alert(`Falha no monitoramento: ${err.message}`);
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  const handleAcknowledgeAlert = async (id) => {
-    try {
-      await api.acknowledgeAlert(id);
-      await loadData();
-    } catch (err) {
-      alert(`Erro ao reconhecer alerta: ${err.message}`);
-    }
-  };
-
-  if (loading) {
-    return <p style={{ textAlign: 'center', padding: '4rem', color: 'var(--gray-500)' }}>Carregando dados do motor de automação...</p>;
-  }
+  const statuses = data?.statuses || {};
 
   return (
     <div style={{ paddingBottom: '3rem' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
         <div>
           <h2 style={{ fontSize: '1.35rem', fontWeight: 800, color: 'var(--gray-900)' }}>
-            Motor de Automação & Monitoramento (V1.2)
+            Monitor de ofertas do WhatsApp
           </h2>
           <p style={{ fontSize: '0.85rem', color: 'var(--gray-500)' }}>
-            Coordenação dos 6 ciclos diários de pesquisa, monitoramento de preços a cada 2h e alertas de oportunidade.
+            Recebe links meli.la, cria links de afiliado e publica no grupo de destino.
           </p>
         </div>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
           <button
-            onClick={loadData}
+            type="button"
+            onClick={() => setIsConfigModalOpen(true)}
             style={{
               padding: '0.5rem 0.9rem',
               background: 'white',
@@ -115,241 +87,91 @@ export default function AutomationPage() {
               fontWeight: 600,
             }}
           >
-            🔄 Atualizar
+            Configurar grupos
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              loadData();
+              loadGroups();
+            }}
+            style={{
+              padding: '0.5rem 0.9rem',
+              background: 'white',
+              border: '1px solid var(--gray-300)',
+              borderRadius: 'var(--radius-sm)',
+              fontSize: '0.85rem',
+              fontWeight: 600,
+            }}
+          >
+            Atualizar
           </button>
         </div>
       </div>
 
-      {/* Painel de Controles e Disparadores */}
-      <div style={{
-        background: 'white',
-        borderRadius: 'var(--radius-md)',
-        padding: '1.5rem',
-        border: '1px solid var(--gray-200)',
-        boxShadow: 'var(--shadow-sm)',
-        marginBottom: '1.5rem',
-      }}>
-        <h3 style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--gray-900)', marginBottom: '1rem' }}>
-          Configurações e Controles em Tempo Real
-        </h3>
-
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1.25rem', marginBottom: '1.25rem' }}>
-          {/* Card Pesquisas */}
-          <div style={{ padding: '1rem', background: 'var(--gray-50)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--gray-200)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-              <span style={{ fontSize: '0.85rem', fontWeight: 700 }}>Pesquisas Programadas</span>
-              <span style={{ fontSize: '0.75rem', fontWeight: 700, color: config?.searches_enabled ? 'var(--success)' : 'var(--danger)' }}>
-                {config?.searches_enabled ? '● ATIVAS (6x/dia)' : '○ PAUSADAS'}
-              </span>
-            </div>
-            <p style={{ fontSize: '0.78rem', color: 'var(--gray-600)', marginBottom: '0.75rem' }}>
-              Horários: 08h, 10h, 12h, 14h, 16h e 18h com rotação de termos nas 4 categorias.
-            </p>
-            <div style={{ display: 'flex', gap: '0.5rem' }}>
-              <button
-                onClick={handleToggleSearches}
-                style={{
-                  padding: '0.4rem 0.75rem',
-                  borderRadius: 'var(--radius-sm)',
-                  fontSize: '0.78rem',
-                  fontWeight: 600,
-                  backgroundColor: config?.searches_enabled ? '#fee2e2' : '#dcfce7',
-                  color: config?.searches_enabled ? '#b91c1c' : '#15803d',
-                }}
-              >
-                {config?.searches_enabled ? 'Pausar Ciclos' : 'Ativar Ciclos'}
-              </button>
-              <button
-                disabled={actionLoading}
-                onClick={handleTriggerSearch}
-                style={{
-                  padding: '0.4rem 0.75rem',
-                  borderRadius: 'var(--radius-sm)',
-                  fontSize: '0.78rem',
-                  fontWeight: 600,
-                  backgroundColor: 'var(--primary)',
-                  color: 'white',
-                }}
-              >
-                ▶ Executar Ciclo Agora
-              </button>
-            </div>
+      <section style={{ background: 'white', borderRadius: 'var(--radius-md)', padding: '1.5rem', border: '1px solid var(--gray-200)', marginBottom: '1.5rem' }}>
+        <h3 style={{ marginTop: 0 }}>Configuração do fluxo</h3>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
+          <div>
+            <strong>Origens monitoradas</strong>
+            <div>{data?.source_groups?.join(', ') || 'Não configurado'}</div>
           </div>
-
-          {/* Card Monitoramento */}
-          <div style={{ padding: '1rem', background: 'var(--gray-50)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--gray-200)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-              <span style={{ fontSize: '0.85rem', fontWeight: 700 }}>Monitor de Preços</span>
-              <span style={{ fontSize: '0.75rem', fontWeight: 700, color: config?.price_monitoring_enabled ? 'var(--success)' : 'var(--danger)' }}>
-                {config?.price_monitoring_enabled ? '● ATIVO (a cada 2h)' : '○ PAUSADO'}
-              </span>
-            </div>
-            <p style={{ fontSize: '0.78rem', color: 'var(--gray-600)', marginBottom: '0.75rem' }}>
-              Janela: 08:30 às 20:30. Dispara alerta para reduções de preço ≥ {config?.price_drop_threshold}%.
-            </p>
-            <div style={{ display: 'flex', gap: '0.5rem' }}>
-              <button
-                onClick={handleToggleMonitoring}
-                style={{
-                  padding: '0.4rem 0.75rem',
-                  borderRadius: 'var(--radius-sm)',
-                  fontSize: '0.78rem',
-                  fontWeight: 600,
-                  backgroundColor: config?.price_monitoring_enabled ? '#fee2e2' : '#dcfce7',
-                  color: config?.price_monitoring_enabled ? '#b91c1c' : '#15803d',
-                }}
-              >
-                {config?.price_monitoring_enabled ? 'Pausar Monitor' : 'Ativar Monitor'}
-              </button>
-              <button
-                disabled={actionLoading}
-                onClick={handleTriggerMonitor}
-                style={{
-                  padding: '0.4rem 0.75rem',
-                  borderRadius: 'var(--radius-sm)',
-                  fontSize: '0.78rem',
-                  fontWeight: 600,
-                  backgroundColor: 'var(--primary)',
-                  color: 'white',
-                }}
-              >
-                ▶ Monitorar Agora
-              </button>
-            </div>
-          </div>
+          <div><strong>Destinos</strong><div>{data?.target_groups?.join(', ') || 'Nenhum grupo cadastrado'}</div></div>
+          <div><strong>Limite diário</strong><div>{data?.today_sent || 0} / {data?.daily_limit ?? 20} ofertas</div></div>
         </div>
-      </div>
-
-      {/* Alertas de Variação de Preço (Seção 10) */}
-      <div style={{
-        background: 'white',
-        borderRadius: 'var(--radius-md)',
-        padding: '1.5rem',
-        border: '1px solid var(--gray-200)',
-        boxShadow: 'var(--shadow-sm)',
-        marginBottom: '1.5rem',
-      }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-          <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--gray-900)' }}>
-            🚨 Alertas de Queda de Preço Detectados (≥ {config?.price_drop_threshold}%)
-          </h3>
-          <span style={{ fontSize: '0.8rem', color: 'var(--gray-500)' }}>
-            Exige nova aprovação antes de qualquer nova publicação
-          </span>
-        </div>
-
-        {alerts.length === 0 ? (
-          <p style={{ color: 'var(--gray-500)', fontSize: '0.875rem' }}>Nenhum alerta de preço pendente.</p>
-        ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '1rem' }}>
-            {alerts.map((alert) => (
-              <div
-                key={alert.id}
-                style={{
-                  padding: '1rem',
-                  borderRadius: 'var(--radius-sm)',
-                  border: '1px solid #fed7aa',
-                  background: alert.is_acknowledged ? '#f9fafb' : '#fff7ed',
-                  display: 'flex',
-                  flexDirection: 'column',
-                }}
-              >
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
-                  <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#c2410c' }}>
-                    QUEDA DE -{alert.discount_percentage}%
-                  </span>
-                  <span style={{ fontSize: '0.7rem', color: 'var(--gray-500)' }}>
-                    {new Date(alert.created_at).toLocaleDateString()}
-                  </span>
-                </div>
-
-                <div style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--gray-900)', marginBottom: '0.5rem' }}>
-                  {alert.product_title}
-                </div>
-
-                <div style={{ fontSize: '0.85rem', marginBottom: '0.75rem' }}>
-                  De <span style={{ textDecoration: 'line-through', color: 'var(--gray-500)' }}>R$ {Number(alert.old_price).toFixed(2)}</span> para{' '}
-                  <strong style={{ color: 'var(--success)' }}>R$ {Number(alert.new_price).toFixed(2)}</strong>
-                </div>
-
-                <div style={{ marginTop: 'auto', display: 'flex', justifyContent: 'flex-end' }}>
-                  {!alert.is_acknowledged ? (
-                    <button
-                      onClick={() => handleAcknowledgeAlert(alert.id)}
-                      style={{
-                        padding: '0.35rem 0.75rem',
-                        borderRadius: 'var(--radius-sm)',
-                        background: '#ea580c',
-                        color: 'white',
-                        fontSize: '0.75rem',
-                        fontWeight: 600,
-                      }}
-                    >
-                      ✓ Marcar como Revisado
-                    </button>
-                  ) : (
-                    <span style={{ fontSize: '0.75rem', color: 'var(--gray-500)', fontWeight: 600 }}>✓ Revisado</span>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Histórico de Ciclos de Pesquisa (SearchRun - Seção 9.2) */}
-      <div style={{
-        background: 'white',
-        borderRadius: 'var(--radius-md)',
-        padding: '1.5rem',
-        border: '1px solid var(--gray-200)',
-        boxShadow: 'var(--shadow-sm)',
-      }}>
-        <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--gray-900)', marginBottom: '0.5rem' }}>
-          Histórico e Auditoria de Pesquisas (SearchRun)
-        </h3>
-        <p style={{ fontSize: '0.8rem', color: 'var(--gray-500)', marginBottom: '1rem' }}>
-          Registro imutável de cada ciclo de pesquisa programado ou manual com contadores de produtos e duração.
+        <p style={{ marginBottom: 0, color: 'var(--gray-600)', fontSize: '0.85rem' }}>
+          O monitor roda no terminal, não no servidor web. Ele percorre as origens em sequência; por isso, quanto mais grupos forem configurados, maior será o intervalo entre leituras do mesmo grupo. Inicie o Chrome dedicado em
+          <code> 127.0.0.1:9222</code>, autentique o WhatsApp Web e execute:
         </p>
+        <pre style={{ overflowX: 'auto', padding: '0.8rem', background: 'var(--gray-50)', borderRadius: 'var(--radius-sm)' }}>
+          <code>cd backend; .\venv\Scripts\python.exe manage.py monitor_whatsapp_offers --send</code>
+        </pre>
+        <p style={{ marginBottom: 0, color: '#92400e', fontSize: '0.82rem' }}>
+          Use somente o perfil Chrome dedicado iniciado pelo script do projeto. A porta de depuração dá acesso à sessão do navegador e deve permanecer vinculada a localhost.
+        </p>
+      </section>
 
-        {runs.length === 0 ? (
-          <p style={{ color: 'var(--gray-500)', fontSize: '0.875rem' }}>Nenhum ciclo registrado ainda.</p>
+      {error && (
+        <div role="alert" style={{ padding: '0.8rem 1rem', marginBottom: '1rem', background: '#fef2f2', color: '#b91c1c', borderRadius: 'var(--radius-sm)' }}>
+          Não foi possível carregar as ofertas recebidas: {error}
+        </div>
+      )}
+
+      <section style={{ background: 'white', borderRadius: 'var(--radius-md)', padding: '1.5rem', border: '1px solid var(--gray-200)' }}>
+        <h3 style={{ marginTop: 0 }}>Fila e histórico recente</h3>
+        {loading ? (
+          <p>Carregando ofertas...</p>
+        ) : !data?.results?.length ? (
+          <p style={{ color: 'var(--gray-500)' }}>Nenhum link novo foi registrado. Links já visíveis ao iniciar o monitor são ignorados para evitar republicar o histórico.</p>
         ) : (
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
               <thead>
-                <tr style={{ background: 'var(--gray-50)', textAlign: 'left', borderBottom: '1.5px solid var(--gray-200)' }}>
-                  <th style={{ padding: '0.65rem' }}>Categoria</th>
-                  <th style={{ padding: '0.65rem' }}>Termo Pesquisado</th>
-                  <th style={{ padding: '0.65rem' }}>Data/Hora</th>
-                  <th style={{ padding: '0.65rem' }}>Encontrados</th>
-                  <th style={{ padding: '0.65rem' }}>Criados</th>
-                  <th style={{ padding: '0.65rem' }}>Atualizados</th>
-                  <th style={{ padding: '0.65rem' }}>Duração</th>
+                <tr style={{ textAlign: 'left', borderBottom: '1px solid var(--gray-200)' }}>
+                  <th style={{ padding: '0.65rem' }}>Oferta</th>
+                  <th style={{ padding: '0.65rem' }}>Origem</th>
+                  <th style={{ padding: '0.65rem' }}>Cupom</th>
+                  <th style={{ padding: '0.65rem' }}>Recebida</th>
                   <th style={{ padding: '0.65rem' }}>Status</th>
                 </tr>
               </thead>
               <tbody>
-                {runs.map((r) => (
-                  <tr key={r.id} style={{ borderBottom: '1px solid var(--gray-100)' }}>
-                    <td style={{ padding: '0.65rem', fontWeight: 600 }}>{r.category}</td>
-                    <td style={{ padding: '0.65rem' }}>{r.search_term}</td>
-                    <td style={{ padding: '0.65rem' }}>{new Date(r.started_at).toLocaleString()}</td>
-                    <td style={{ padding: '0.65rem' }}>{r.products_found}</td>
-                    <td style={{ padding: '0.65rem', color: 'var(--success)', fontWeight: 600 }}>+{r.products_created}</td>
-                    <td style={{ padding: '0.65rem' }}>{r.products_updated}</td>
-                    <td style={{ padding: '0.65rem' }}>{r.duration_seconds}s</td>
+                {data.results.map((offer) => (
+                  <tr key={offer.id} style={{ borderBottom: '1px solid var(--gray-100)' }}>
                     <td style={{ padding: '0.65rem' }}>
-                      <span style={{
-                        padding: '0.15rem 0.45rem',
-                        borderRadius: '4px',
-                        fontSize: '0.72rem',
-                        fontWeight: 700,
-                        background: r.status === 'completed' ? '#dcfce7' : '#fee2e2',
-                        color: r.status === 'completed' ? '#166534' : '#991b1b',
-                      }}>
-                        {r.status.toUpperCase()}
-                      </span>
+                      <div style={{ fontWeight: 600 }}>{offer.product_title || 'Link recebido'}</div>
+                      <a href={offer.source_link} target="_blank" rel="noreferrer">Abrir link de origem</a>
+                    </td>
+                    <td style={{ padding: '0.65rem' }}>{offer.source_group}</td>
+                    <td style={{ padding: '0.65rem' }}>{offer.coupon || '—'}</td>
+                    <td style={{ padding: '0.65rem' }}>{new Date(offer.received_at).toLocaleString()}</td>
+                    <td style={{ padding: '0.65rem', fontWeight: 700, color: statusColors[offer.status] || 'var(--gray-600)' }}>
+                      {statusLabels[offer.status] || offer.status}
+                      {offer.status === 'uncertain' && offer.error_message && (
+                        <div style={{ maxWidth: '320px', marginTop: '0.25rem', fontWeight: 400, fontSize: '0.75rem' }}>
+                          {offer.error_message}
+                        </div>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -357,7 +179,15 @@ export default function AutomationPage() {
             </table>
           </div>
         )}
-      </div>
+      </section>
+      <WhatsAppConfigModal
+        isOpen={isConfigModalOpen}
+        onClose={() => setIsConfigModalOpen(false)}
+        groups={groups}
+        onSaveGroups={handleSaveGroups}
+        activeGroupId=""
+        onSelectActiveGroup={() => {}}
+      />
     </div>
   );
 }

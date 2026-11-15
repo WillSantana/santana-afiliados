@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { api } from '../services/api';
 import { Icon } from './Icons';
 import { useToast } from './Toast';
@@ -10,16 +10,18 @@ export default function PublicationPreviewModal({ product, onClose, onPublished 
   const [publishSuccess, setPublishSuccess] = useState(false);
   const [feedbackMessage, setFeedbackMessage] = useState(null);
 
-  const savedGroups = (() => {
-    try {
-      const g = JSON.parse(localStorage.getItem('santana_whatsapp_groups'));
-      if (Array.isArray(g) && g.length > 0) return g;
-    } catch {}
-    return [];
-  })();
+  const [groups, setGroups] = useState([]);
+  const [groupsError, setGroupsError] = useState('');
 
-  const defaultGroupId = localStorage.getItem('santana_active_group_id') || savedGroups[0]?.id;
-  const [selectedGroup, setSelectedGroup] = useState(defaultGroupId);
+  useEffect(() => {
+    api.getWhatsAppGroups()
+      .then((config) => setGroups(config.groups || []))
+      .catch((error) => setGroupsError(error.message));
+  }, []);
+
+  const destinationGroups = groups.filter(
+    (group) => group.role === 'destination' && group.jid,
+  );
 
   if (!product) return null;
 
@@ -56,8 +58,8 @@ ${link}
       addToast('Atenção: É obrigatório associar um link oficial de afiliado antes de publicar!', 'error');
       return;
     }
-    if (!selectedGroup) {
-      addToast('Cadastre e selecione o JID real do grupo do WhatsApp antes de publicar.', 'error');
+    if (!destinationGroups.length) {
+      addToast('Cadastre ao menos um grupo de destino com JID nas configurações do WhatsApp.', 'error');
       return;
     }
     setPublishing(true);
@@ -66,8 +68,23 @@ ${link}
       // 1. Gera ou recupera rascunho de publicação
       const pub = await api.generatePublication(product.id);
       // 2. Dispara no gateway de WhatsApp para o grupo selecionado
-      const res = await api.publishPublication(pub.id, selectedGroup);
-      
+      const res = await api.publishPublication(pub.id);
+      if (res.partial) {
+        setPublishSuccess(true);
+        const deliveries = res.dispatch?.deliveries || [];
+        const sentTo = deliveries.filter((delivery) => delivery.success).map((delivery) => delivery.group_name);
+        const failedAt = deliveries.find((delivery) => !delivery.success)?.group_name;
+        const details = [
+          sentTo.length ? `Enviado para: ${sentTo.join(', ')}.` : '',
+          failedAt ? `Falhou em: ${failedAt}.` : '',
+        ].filter(Boolean).join(' ');
+        const message = `${res.message || 'Publicação parcial.'} ${details}`.trim();
+        setFeedbackMessage({ type: 'error', text: message });
+        addToast(message, 'error');
+        if (onPublished) onPublished();
+        return;
+      }
+
       setPublishSuccess(true);
       const isSimulated = res.dispatch?.simulated;
       const msg = res.message || 'Publicação concluída com sucesso!';
@@ -128,27 +145,22 @@ ${link}
             </div>
           </div>
 
-          {/* Seletor de Grupo de Destino */}
-          <div style={{ marginTop: '1rem', background: '#f8fafc', padding: '0.65rem 0.85rem', borderRadius: '8px', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem' }}>
-            <label style={{ fontSize: '0.82rem', fontWeight: 600, color: '#334155', display: 'flex', alignItems: 'center', gap: '6px', margin: 0, whiteSpace: 'nowrap' }}>
+          <div style={{ marginTop: '1rem', background: '#f8fafc', padding: '0.75rem 0.85rem', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+            <strong style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <Icon name="users" size={15} color="#16a34a" />
-              Destino:
-            </label>
-            <select
-              className="modern-input"
-              style={{ flex: 1, padding: '0.35rem 0.6rem', fontSize: '0.82rem', height: 'auto' }}
-              value={selectedGroup}
-              onChange={(e) => setSelectedGroup(e.target.value)}
-            >
-              {!savedGroups.length && (
-                <option value="">Cadastre um grupo real nas configurações do WhatsApp</option>
-              )}
-              {savedGroups.map((g) => (
-                <option key={g.id} value={g.id}>
-                  {g.name}
-                </option>
-              ))}
-            </select>
+              Destinos desta oferta
+            </strong>
+            {groupsError ? (
+              <p role="alert" style={{ color: '#b91c1c', marginBottom: 0 }}>{groupsError}</p>
+            ) : destinationGroups.length ? (
+              <ul style={{ margin: '0.5rem 0 0', paddingLeft: '1.25rem' }}>
+                {destinationGroups.map((group) => (
+                  <li key={group.id || group.jid}>{group.name}</li>
+                ))}
+              </ul>
+            ) : (
+              <p style={{ marginBottom: 0 }}>Cadastre grupos de destino com JID nas configurações do WhatsApp.</p>
+            )}
           </div>
 
           {feedbackMessage && (
@@ -180,10 +192,10 @@ ${link}
             type="button"
             className="btn-whatsapp-publish"
             onClick={handlePublish}
-            disabled={publishing || publishSuccess || !product.affiliate_url || !selectedGroup}
+            disabled={publishing || publishSuccess || !product.affiliate_url || !destinationGroups.length || Boolean(groupsError)}
           >
             <Icon name={publishSuccess ? 'check' : 'whatsapp'} size={16} />
-            {publishSuccess ? 'Disparado!' : publishing ? 'Enviando...' : 'Publicar Agora'}
+            {publishSuccess ? (feedbackMessage?.type === 'error' ? 'Envio parcial' : 'Disparado!') : publishing ? 'Enviando...' : 'Publicar Agora'}
           </button>
         </div>
       </div>

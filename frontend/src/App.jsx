@@ -5,14 +5,11 @@ import AutomationPage from './pages/AutomationPage';
 import PublicationsPage from './pages/PublicationsPage';
 import AnalyticsPage from './pages/AnalyticsPage';
 import CampaignsPage from './pages/CampaignsPage';
-import SearchModal from './components/SearchModal';
 import { ToastProvider } from './components/Toast';
 import { useProducts } from './hooks/useProducts';
 
 function MainApp() {
   const [activeTab, setActiveTab] = useState('catalog');
-  const [isSearchOpen, setIsSearchOpen] = useState(false);
-
   const {
     products,
     loading,
@@ -28,7 +25,6 @@ function MainApp() {
     <MainLayout
       activeTab={activeTab}
       setActiveTab={setActiveTab}
-      onOpenSearch={() => setIsSearchOpen(true)}
     >
       {activeTab === 'catalog' && (
         <CatalogPage
@@ -48,12 +44,6 @@ function MainApp() {
       {activeTab === 'analytics' && <AnalyticsPage />}
       {activeTab === 'campaigns' && <CampaignsPage />}
 
-      {isSearchOpen && (
-        <SearchModal
-          onClose={() => setIsSearchOpen(false)}
-          onSearchCompleted={reload}
-        />
-      )}
     </MainLayout>
   );
 }

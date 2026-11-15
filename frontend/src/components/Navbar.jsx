@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 import { Icon } from './Icons';
 
-export default function Navbar({ activeTab, setActiveTab, onOpenSearch }) {
+export default function Navbar({ activeTab, setActiveTab }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const tabs = [
-    { id: 'catalog', label: 'Catálogo & Triagem', icon: 'catalog' },
-    { id: 'automation', label: 'Automação & Monitor', icon: 'automation' },
+    { id: 'catalog', label: 'Ofertas recebidas', icon: 'catalog' },
+    { id: 'automation', label: 'Monitor WhatsApp', icon: 'automation' },
     { id: 'publications', label: 'WhatsApp', icon: 'publications' },
     { id: 'analytics', label: 'Métricas & Metas', icon: 'analytics' },
     { id: 'campaigns', label: 'Campanhas', icon: 'campaigns' },
@@ -31,7 +31,7 @@ export default function Navbar({ activeTab, setActiveTab, onOpenSearch }) {
             </div>
             <div className="brand-status-tag">
               <span className="live-pulse-dot"></span>
-              <span>Mercado Livre & PostgreSQL Ativos</span>
+              <span>Monitor de ofertas WhatsApp</span>
             </div>
           </div>
         </div>
@@ -56,18 +56,6 @@ export default function Navbar({ activeTab, setActiveTab, onOpenSearch }) {
 
         {/* Desktop Action & Mobile Hamburger */}
         <div className="navbar-actions">
-          <button
-            type="button"
-            className="btn-search-trigger"
-            onClick={() => {
-              onOpenSearch();
-              setMobileMenuOpen(false);
-            }}
-          >
-            <Icon name="search" size={16} />
-            <span className="btn-search-label">Buscar no ML</span>
-          </button>
-
           {/* Hamburger Menu Toggle (Mobile) */}
           <button
             type="button"
@@ -99,17 +87,6 @@ export default function Navbar({ activeTab, setActiveTab, onOpenSearch }) {
                 </button>
               );
             })}
-            <button
-              type="button"
-              className="mobile-search-btn"
-              onClick={() => {
-                onOpenSearch();
-                setMobileMenuOpen(false);
-              }}
-            >
-              <Icon name="search" size={18} />
-              <span>Nova Busca no Mercado Livre</span>
-            </button>
           </nav>
         </div>
       )}

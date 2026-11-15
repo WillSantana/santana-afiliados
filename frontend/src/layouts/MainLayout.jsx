@@ -1,13 +1,12 @@
 import React from 'react';
 import Navbar from '../components/Navbar';
 
-export default function MainLayout({ children, activeTab, setActiveTab, onOpenSearch }) {
+export default function MainLayout({ children, activeTab, setActiveTab }) {
   return (
     <div className="app-layout">
       <Navbar
         activeTab={activeTab}
         setActiveTab={setActiveTab}
-        onOpenSearch={onOpenSearch}
       />
 
       <main className="main-content">
@@ -22,7 +21,7 @@ export default function MainLayout({ children, activeTab, setActiveTab, onOpenSe
             <strong>Santana Afiliados Bot</strong> • Automação Comercial & Inteligência de Ofertas
           </div>
           <div className="footer-right">
-            Conforme as diretrizes oficiais do Mercado Livre Afiliados & WhatsApp
+            Automação de ofertas recebidas no WhatsApp
           </div>
         </div>
       </footer>
