@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from .models import Publication, PublicationStatus
+from .models import IncomingAffiliateOffer
 from apps.catalog.serializers import ProductOfferSerializer
 
 
@@ -27,3 +28,25 @@ class PublicationSerializer(serializers.ModelSerializer):
 class GeneratePublicationSerializer(serializers.Serializer):
     product_id = serializers.IntegerField(required=True)
     custom_benefit = serializers.CharField(required=False, allow_blank=True)
+
+
+class IncomingAffiliateOfferSerializer(serializers.ModelSerializer):
+    product_title = serializers.SerializerMethodField()
+
+    class Meta:
+        model = IncomingAffiliateOffer
+        fields = [
+            'id',
+            'source_link',
+            'source_group',
+            'coupon',
+            'status',
+            'product_title',
+            'error_message',
+            'received_at',
+            'processed_at',
+            'published_at',
+        ]
+
+    def get_product_title(self, offer):
+        return offer.product.title if offer.product_id else ''

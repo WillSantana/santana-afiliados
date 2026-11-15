@@ -43,8 +43,6 @@ INSTALLED_APPS = [
 
     # Santana Afiliados Bot Apps (V1.2)
     'apps.catalog',
-    'apps.integrations.mercadolivre',
-    'apps.automation',
     'apps.affiliates',
     'apps.campaigns',
     'apps.publications',
@@ -146,28 +144,11 @@ CORS_ALLOWED_ORIGINS = [
     ).split(',') if origin.strip()
 ]
 
-# Celery & Redis (Seção 11.3)
-CELERY_BROKER_URL = os.getenv('CELERY_BROKER_URL', 'redis://localhost:6379/0')
-CELERY_RESULT_BACKEND = os.getenv('CELERY_RESULT_BACKEND', 'redis://localhost:6379/0')
-CELERY_ACCEPT_CONTENT = ['json']
-CELERY_TASK_SERIALIZER = 'json'
-CELERY_RESULT_SERIALIZER = 'json'
-CELERY_TIMEZONE = TIME_ZONE
-CELERY_ENABLE_UTC = True
-
-# Importa agendamentos do Celery Beat
-try:
-    from apps.automation.schedules import AUTOMATION_BEAT_SCHEDULE
-    CELERY_BEAT_SCHEDULE = AUTOMATION_BEAT_SCHEDULE
-except ImportError:
-    CELERY_BEAT_SCHEDULE = {}
-
-# Configurações Mercado Livre
-MERCADOLIVRE_API_URL = os.getenv('MERCADOLIVRE_API_URL', 'https://api.mercadolibre.com')
-MERCADOLIVRE_SITE_ID = os.getenv('MERCADOLIVRE_SITE_ID', 'MLB')
-MERCADOLIVRE_CLIENT_ID = os.getenv('MERCADOLIVRE_CLIENT_ID', '')
-MERCADOLIVRE_CLIENT_SECRET = os.getenv('MERCADOLIVRE_CLIENT_SECRET', '')
-MERCADOLIVRE_ACCESS_TOKEN = os.getenv('MERCADOLIVRE_ACCESS_TOKEN', '')
+# Configuração do Chrome dedicado do monitor de ofertas
+AFFILIATE_BOT_CHROME_DEBUGGER_ADDRESS = os.getenv(
+    'AFFILIATE_BOT_CHROME_DEBUGGER_ADDRESS',
+    '127.0.0.1:9222',
+)
 
 # Configurações de Envio WhatsApp (Evolution API / Z-API / Webhook)
 WHATSAPP_API_ENABLED = os.getenv('WHATSAPP_API_ENABLED', 'False').lower() in ('true', '1', 'yes')
@@ -175,31 +156,11 @@ WHATSAPP_API_URL = os.getenv('WHATSAPP_API_URL', '')
 WHATSAPP_API_TOKEN = os.getenv('WHATSAPP_API_TOKEN', '')
 WHATSAPP_GROUP_ID = os.getenv('WHATSAPP_GROUP_ID', '')
 WHATSAPP_GATEWAY_TYPE = os.getenv('WHATSAPP_GATEWAY_TYPE', 'evolution').lower()
-
-# Termos de Pesquisa Iniciais por Categoria (Especificação V1.2 - Seção 6.2)
-SEARCH_TERMS = {
-    "technology": [
-        "controle xbox",
-        "fone bluetooth",
-        "acessorios gamer",
-        "smartwatch",
-    ],
-    "fashion": [
-        "tenis masculino",
-        "camiseta masculina",
-        "bermuda masculina",
-    ],
-    "home": [
-        "organizador domestico",
-        "utensilios cozinha",
-        "ferramentas",
-    ],
-    "beauty": [
-        "perfume masculino",
-        "cuidados pessoais",
-        "maquina de cortar cabelo",
-    ],
-}
+AFFILIATE_BOT_SOURCE_GROUP = os.getenv('AFFILIATE_BOT_SOURCE_GROUP', '')
+AFFILIATE_BOT_TARGET_GROUP = os.getenv('AFFILIATE_BOT_TARGET_GROUP', '')
+AFFILIATE_BOT_DAILY_LIMIT = int(os.getenv('AFFILIATE_BOT_DAILY_LIMIT', '20'))
+AFFILIATE_BOT_POLL_INTERVAL_SECONDS = int(os.getenv('AFFILIATE_BOT_POLL_INTERVAL_SECONDS', '10'))
+AFFILIATE_BOT_MIN_INTERVAL_SECONDS = int(os.getenv('AFFILIATE_BOT_MIN_INTERVAL_SECONDS', '120'))
 
 # Pesos de Pontuação de Oportunidade (Especificação V1.2 - Seção 8.1)
 OPPORTUNITY_SCORE_WEIGHTS = {
@@ -211,4 +172,3 @@ OPPORTUNITY_SCORE_WEIGHTS = {
     "commercial_attractiveness": 10, # Atratividade comercial
 }
 BUDGET_MAX_PREFERENTIAL = float(os.getenv('BUDGET_MAX_PREFERENTIAL', '200.00'))
-PRICE_ALERT_THRESHOLD_PERCENT = float(os.getenv('PRICE_ALERT_THRESHOLD_PERCENT', '5.0'))

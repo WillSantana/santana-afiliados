@@ -11,6 +11,7 @@ import re
 
 
 class CategoryChoices(models.TextChoices):
+    OTHER = 'other', 'Outros'
     TECHNOLOGY = 'technology', 'Tecnologia e games'
     FASHION = 'fashion', 'Moda masculina'
     HOME = 'home', 'Casa e utilidades'
@@ -32,7 +33,7 @@ class ProductOffer(models.Model):
         max_length=64,
         unique=True,
         db_index=True,
-        verbose_name="Identificador único (MLB)"
+        verbose_name="Identificador do anúncio"
     )
     title = models.CharField(
         max_length=255,

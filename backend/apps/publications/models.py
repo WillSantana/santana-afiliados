@@ -15,6 +15,101 @@ class PublicationStatus(models.TextChoices):
     CANCELLED = 'cancelled', 'Cancelada'
 
 
+class IncomingOfferStatus(models.TextChoices):
+    IGNORED = 'ignored', 'Link já existente ao iniciar'
+    PENDING = 'pending', 'Aguardando processamento automático'
+    PROCESSING = 'processing', 'Em processamento'
+    PUBLISHED = 'published', 'Publicada automaticamente'
+    SKIPPED = 'skipped', 'Ignorada por dados insuficientes ou duplicidade'
+    FAILED = 'failed', 'Falha antes do envio'
+    UNCERTAIN = 'uncertain', 'Envio incerto; não reenviar automaticamente'
+
+
+class WhatsAppGroupRole(models.TextChoices):
+    SOURCE = 'source', 'Origem monitorada'
+    DESTINATION = 'destination', 'Destino de publicação'
+
+
+class WhatsAppGroupConfiguration(models.Model):
+    configured_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Configuração dos grupos do WhatsApp'
+        verbose_name_plural = 'Configuração dos grupos do WhatsApp'
+
+
+class WhatsAppGroup(models.Model):
+    name = models.CharField(max_length=128, verbose_name='Nome do grupo')
+    jid = models.CharField(
+        max_length=128,
+        unique=True,
+        null=True,
+        blank=True,
+        verbose_name='ID do grupo (JID)',
+    )
+    role = models.CharField(
+        max_length=16,
+        choices=WhatsAppGroupRole.choices,
+        verbose_name='Uso do grupo',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Grupo do WhatsApp'
+        verbose_name_plural = 'Grupos do WhatsApp'
+        ordering = ['role', 'name']
+
+    def __str__(self):
+        return f'{self.name} ({self.get_role_display()})'
+
+
+class IncomingAffiliateOffer(models.Model):
+    """
+    Deduplication and audit record for a short affiliate link found in the source chat.
+    Raw WhatsApp message bodies are deliberately not persisted.
+    """
+    source_link = models.URLField(max_length=512, unique=True)
+    source_group = models.CharField(max_length=128)
+    coupon = models.CharField(max_length=80, blank=True)
+    status = models.CharField(
+        max_length=24,
+        choices=IncomingOfferStatus.choices,
+        default=IncomingOfferStatus.PENDING,
+        db_index=True,
+    )
+    product = models.ForeignKey(
+        ProductOffer,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='incoming_affiliate_offers',
+    )
+    publication = models.ForeignKey(
+        'Publication',
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='incoming_affiliate_offers',
+    )
+    error_message = models.TextField(blank=True)
+    received_at = models.DateTimeField(default=timezone.now, db_index=True)
+    processed_at = models.DateTimeField(null=True, blank=True)
+    published_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Oferta recebida do WhatsApp'
+        verbose_name_plural = 'Ofertas recebidas do WhatsApp'
+        ordering = ['received_at', 'id']
+        indexes = [
+            models.Index(fields=['status', 'received_at']),
+        ]
+
+    def __str__(self):
+        return f'{self.source_link} ({self.status})'
+
+
 class Publication(models.Model):
     """
     Registro formal de mensagem promocional pronta para envio ou já enviada.

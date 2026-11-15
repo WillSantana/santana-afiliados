@@ -17,17 +17,18 @@ O backend espera por padrão os seguintes parâmetros configurados no arquivo `.
 | `DB_PASSWORD` | definir no `.env` | Senha exclusiva do usuário do banco |
 | `DB_HOST` | `localhost` (ou `127.0.0.1`) | Endereço do servidor PostgreSQL |
 | `DB_PORT` | `5432` | Porta padrão do PostgreSQL |
-| `MERCADOLIVRE_ACCESS_TOKEN` | vazio | Token OAuth válido para consultar anúncios reais; configure no `.env` da raiz |
 
-Para buscar anúncios reais:
+## Monitor de ofertas recebidas
 
-1. Acesse o [portal de desenvolvedores do Mercado Livre](https://developers.mercadolivre.com.br/) com a conta que usará o programa de afiliados e crie uma aplicação em **Minhas aplicações**.
-2. Configure o site/país da conta, as permissões de leitura necessárias e uma URL de redirecionamento válida. A URL informada no fluxo OAuth deve ser idêntica à registrada.
-3. Autorize a aplicação com a conta desejada e obtenha um token de acesso OAuth. Siga a documentação oficial atual de [autenticação e autorização](https://developers.mercadolivre.com.br/pt_br/autenticacao-e-autorizacao).
-4. Configure `MERCADOLIVRE_ACCESS_TOKEN` no `.env` da raiz do projeto e reinicie o backend. Nunca compartilhe ou versione tokens, Client Secret ou códigos de autorização.
-5. Se o Mercado Livre retornar 401/403, confirme no portal se a autorização/token está válido e se a aplicação tem acesso à API. Tokens expiram e precisam seguir o fluxo de renovação OAuth do Mercado Livre.
+O fluxo atual não pesquisa produtos. Ele acompanha links `meli.la` no grupo de WhatsApp, usando o Chrome dedicado iniciado por `iniciar_chrome_whatsapp.bat`; o navegador precisa estar autenticado no WhatsApp Web e no Mercado Livre. Configure os grupos e o limite diário no `.env` e consulte [WHATSAPP.md](./WHATSAPP.md) para os comandos de execução.
 
-Sem token válido, a busca informa a configuração pendente ou a recusa da API e não cadastra produtos fictícios. O catálogo também oculta registros antigos com links de busca ou IDs demonstrativos; após configurar o OAuth, faça uma nova busca.
+Após atualizar o código, aplique as migrations sem excluir dados:
+
+```powershell
+.\venv\Scripts\python.exe manage.py migrate
+```
+
+As tabelas legadas de busca/automação não são removidas automaticamente pela reformulação.
 
 ---
 
@@ -199,9 +200,8 @@ Caso você esteja em um ambiente de desenvolvimento sem permissão de portas ou 
 3. O Django passará a usar automaticamente o arquivo local `backend/db.sqlite3`.
 4. Aplique as migrações no SQLite:
    ```bash
-   python manage.py migrate
-   python create_admin.py
-   python seed_data.py
+      python manage.py migrate
+      python create_admin.py
    ```
 *(Para voltar a usar o PostgreSQL, basta recolocar `USE_SQLITE=False` no `.env` e iniciar o serviço do PostgreSQL).*
 
@@ -224,10 +224,6 @@ Após o banco de dados estar rodando (PostgreSQL ou SQLite):
   python create_admin.py
   ```
   O comando cria um superusuário solicitando as credenciais no terminal; ele não define nem redefine uma senha padrão.
-* **Recarregar Ofertas Demonstrativas:**
-  ```bash
-  python seed_data.py
-  ```
 * **Acessar o Terminal SQL do Django:**
   ```bash
   python manage.py dbshell

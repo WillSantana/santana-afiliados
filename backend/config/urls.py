@@ -24,12 +24,6 @@ urlpatterns = [
     # Endpoints do Catálogo e Produtos
     path('api/products/', include('apps.catalog.urls')),
 
-    # Execução de Busca no Mercado Livre
-    path('api/search/', include('apps.integrations.mercadolivre.urls')),
-
-    # Motor de Automação, Histórico de Pesquisas e Monitoramento de Preços (V1.2)
-    path('api/automation/', include('apps.automation.urls')),
-
     # Campanhas
     path('api/campaigns/', include('apps.campaigns.urls')),
 

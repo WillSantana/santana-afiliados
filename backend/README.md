@@ -1,90 +1,49 @@
-# Backend – API Server (Django)
+# Backend Django
 
-## Prerequisites
-| OS | Required Tools |
-|---|---|
-| **Linux** | • Python 3.11 (or newer) <br> • `git` (optional) <br> • `make` (optional) |
-| **Windows** | • Python 3.11 (or newer) <br> • PowerShell (default) |
+O backend fornece a API do catálogo e da fila de ofertas recebidas no WhatsApp. A coleta de produtos por busca no Mercado Livre e o monitoramento de preços não fazem mais parte do aplicativo.
 
-## Quick Start (Linux & Windows)
-1. **Clone the repository** (if you haven't already):
-   ```bash
-   git clone https://github.com/yourusername/apivendas.git
-   cd apivendas/backend
+## Instalação e inicialização
+
+No PowerShell:
+
+```powershell
+Set-Location "C:\projetos wilson\apivendas\backend"
+python -m venv venv
+.\venv\Scripts\python.exe -m pip install -r requirements.txt
+.\venv\Scripts\python.exe manage.py migrate
+.\venv\Scripts\python.exe manage.py runserver
+```
+
+O ambiente local já pode ter uma `venv`; nesse caso, pule a criação. O `.env` é carregado da raiz do repositório. Configure o banco e os grupos do WhatsApp antes de iniciar o monitor.
+
+## Monitor de ofertas recebidas
+
+O comando `monitor_whatsapp_offers` acompanha o grupo de origem usando WhatsApp Web no Chrome dedicado. Ele detecta novos links `meli.la`, abre o anúncio, prepara o link de afiliado e pode publicar a oferta no grupo de destino.
+
+1. Execute `iniciar_chrome_whatsapp.bat` na raiz do projeto.
+2. Faça login no WhatsApp Web e no Mercado Livre nessa janela.
+3. Faça uma leitura inicial sem enviar:
+
+   ```powershell
+   .\venv\Scripts\python.exe manage.py monitor_whatsapp_offers --once
    ```
-2. **Create a virtual environment**
-   - Linux/macOS:
-     ```bash
-     python -m venv venv
-     source venv/bin/activate
-     ```
-   - Windows (PowerShell):
-     ```powershell
-     python -m venv venv
-     .\venv\Scripts\Activate.ps1
-     ```
-3. **Install dependencies**
-   ```bash
-   pip install -r requirements.txt
-   ```
-4. **Configure environment variables**
-   - Copy the example file:
-     ```bash
-     cp .env.example .env   # Linux/macOS
-     copy .env.example .env # Windows PowerShell
-     ```
-   - Edit `.env` and set the values you need. Important keys for WhatsApp integration:
-     ```text
-     WHATSAPP_API_ENABLED=True   # set to False while testing without Evolution API
-     WHATSAPP_API_URL=http://localhost:8080/message/sendMedia/instancia-santana
-     WHATSAPP_API_TOKEN=your_api_key_here
-     WHATSAPP_GROUP_ID=1234567890@g.us   # leave empty; you will set via UI later
-     ```
-   - To search for real Mercado Livre listings:
-     1. Sign in to the [Mercado Livre developers portal](https://developers.mercadolivre.com.br/) with the account that will use the affiliate program.
-     2. Open **Minhas aplicações** and create an application. Select the Mercado Livre site used by the account and enable the permissions the app requests for reading items/searching.
-     3. In the app's OAuth/redirect settings, add a redirect URL you control. It must match exactly when authorizing the app. Never publish the Client Secret.
-     4. Complete Mercado Livre's OAuth authorization for that app/account and obtain a valid **access token**. Review the current [OAuth authorization documentation](https://developers.mercadolivre.com.br/pt_br/autenticacao-e-autorizacao) for the portal's current steps.
-     5. Put the token in `MERCADOLIVRE_ACCESS_TOKEN` in the project-root `.env` file. Do not send it in chat, add it to source control, or put it in the frontend.
-     6. Restart Django and run a new search. Access tokens expire; obtain/refresh a valid token using the app's OAuth flow when Mercado Livre requires it.
-   - A 403 means Mercado Livre rejected the authorization or the app is not permitted to use the endpoint. Check the app/account, permissions and token in the developer portal. The search will not add fake items.
-5. **Run PostgreSQL**
-   - The project ships a local PostgreSQL binary in `pgsql/`. Start it with:
-     ```powershell
-     .\pgsql\pgsql\bin\postgres.exe -D "C:\projetos wilson\apivendas\pgsql\data" -p 5432
-     ```
-     *(On Linux you can use the bundled `pg_ctl` script similarly.)*
-6. **Apply migrations & create a superuser**
-   ```bash
-   python manage.py migrate
-   python manage.py createsuperuser   # follow prompts
-   ```
-7. **Start the development server**
-   ```bash
-   python manage.py runserver 0.0.0.0:8000
-   ```
-   The API will be reachable at `http://localhost:8000/`.
 
-## Running the WhatsApp Gateway (Evolution API)
-If you want automatic posting to WhatsApp groups, you need the open‑source Evolution API.
-1. Install Docker **or** run the pre‑built binary.
-2. Start the container (Docker example):
-   ```bash
-   docker run -d -p 8080:8080 ghcr.io/evolution-api/evolution-api:latest
+4. Para processar continuamente e publicar automaticamente novas ofertas:
+
+   ```powershell
+   .\venv\Scripts\python.exe manage.py monitor_whatsapp_offers --send
    ```
-3. Scan the QR‑code that appears in the container logs with your phone’s WhatsApp.
-4. Once the session is active, the backend will be able to POST messages using the configuration stored in `.env`.
 
-## Production Tips
-- Use a real PostgreSQL server (RDS, CloudSQL, etc.) and set `DATABASE_URL` in `.env`.
-- Set `WHATSAPP_API_ENABLED=False` when you do not want the bot to send messages.
-- Secure the `.env` file – never commit it to version control.
+`--send` ativa a publicação automática, sem aprovação individual por oferta. O teto padrão é 20 por dia e o intervalo mínimo entre publicações é 120 segundos. O comando aceita `--once` e `--retry-failed`; use a última opção somente após corrigir uma falha ocorrida antes do envio.
 
----
-**Troubleshooting**
-- *"Module not found: psycopg2"* → Install the binary wheels: `pip install psycopg2-binary`.
-- *"Database connection refused"* → Verify the PostgreSQL daemon is running and listening on port 5432.
-- *WhatsApp messages not sending* → Ensure `WHATSAPP_API_URL` points to the running Evolution API and the token is correct.
+O monitor ignora links que já estavam visíveis quando iniciou. Confirma o grupo de destino e a prévia com imagem; se o resultado do envio for ambíguo, registra como incerto e não reenvia automaticamente. A fila pode ser consultada no painel e em `GET /api/publications/incoming-offers/`.
 
----
-*Last updated: 2026‑11‑11*
+Gerencie grupos em **Automação → Configurar grupos** no painel. Cadastre uma origem monitorada e um ou mais destinos com JID válido; o monitor passa a usar essa configuração persistida no banco. As publicações manuais também são enviadas a todos os destinos configurados.
+
+## Segurança do navegador
+
+O Chrome deve ser iniciado pelo `iniciar_chrome_whatsapp.bat`, que usa perfil dedicado e depuração em `127.0.0.1:9222`. Essa porta permite controle da sessão autenticada: não use o perfil para outras atividades e não exponha a porta a outras máquinas.
+
+## Banco de dados e dados antigos
+
+Consulte [DATABASE.md](./DATABASE.md) para iniciar/configurar o PostgreSQL. As tabelas antigas de automação não são apagadas automaticamente; não remova dados legados sem backup e decisão explícita.
