@@ -5,7 +5,9 @@ import WhatsAppConfigModal from '../components/WhatsAppConfigModal';
 const statusLabels = {
   ignored: 'Já existia ao iniciar',
   pending: 'Na fila',
+  preparing: 'Preparando produto e afiliado',
   processing: 'Processando',
+  prepared: 'Pronta para envio',
   published: 'Publicada',
   skipped: 'Ignorada',
   failed: 'Falha antes do envio',
@@ -15,7 +17,9 @@ const statusLabels = {
 const statusColors = {
   published: '#166534',
   pending: '#1d4ed8',
+  preparing: '#b45309',
   processing: '#7c3aed',
+  prepared: '#0369a1',
   failed: '#b91c1c',
   uncertain: '#b45309',
 };
@@ -167,9 +171,14 @@ export default function AutomationPage() {
                     <td style={{ padding: '0.65rem' }}>{new Date(offer.received_at).toLocaleString()}</td>
                     <td style={{ padding: '0.65rem', fontWeight: 700, color: statusColors[offer.status] || 'var(--gray-600)' }}>
                       {statusLabels[offer.status] || offer.status}
-                      {offer.status === 'uncertain' && offer.error_message && (
+                      {['failed', 'prepared', 'uncertain'].includes(offer.status) && offer.error_message && (
                         <div style={{ maxWidth: '320px', marginTop: '0.25rem', fontWeight: 400, fontSize: '0.75rem' }}>
                           {offer.error_message}
+                        </div>
+                      )}
+                      {offer.affiliate_url && (
+                        <div style={{ marginTop: '0.25rem', fontWeight: 400, fontSize: '0.75rem' }}>
+                          <a href={offer.affiliate_url} target="_blank" rel="noreferrer">Link de afiliado validado</a>
                         </div>
                       )}
                     </td>
