@@ -136,10 +136,46 @@ def disconnect_automation_browser(browser):
 
 
 def open_whatsapp_group(browser, group_name, timeout=30):
-    from selenium.common.exceptions import TimeoutException, WebDriverException
+    from selenium.common.exceptions import (
+        ElementClickInterceptedException,
+        NoSuchElementException,
+        TimeoutException,
+        WebDriverException,
+    )
     from selenium.webdriver.common.by import By
     from selenium.webdriver.common.keys import Keys
     from selenium.webdriver.support.ui import WebDriverWait
+
+    def click_group_result(element, search=None):
+        try:
+            target = element.find_element(
+                By.XPATH,
+                './ancestor::*[@data-testid="cell-frame-container"][1]',
+            )
+        except NoSuchElementException:
+            target = element
+        try:
+            target.click()
+        except ElementClickInterceptedException:
+            browser.execute_script('arguments[0].click()', target)
+
+        try:
+            WebDriverWait(browser, timeout).until(
+                lambda driver: current_group(driver) == group_name
+            )
+        except TimeoutException:
+            browser.execute_script('arguments[0].click()', target)
+            try:
+                WebDriverWait(browser, timeout).until(
+                    lambda driver: current_group(driver) == group_name
+                )
+            except TimeoutException:
+                if search is None:
+                    raise
+                search.send_keys(Keys.ENTER)
+                WebDriverWait(browser, timeout).until(
+                    lambda driver: current_group(driver) == group_name
+                )
 
     def current_group(driver):
         selectors = (
@@ -159,10 +195,7 @@ def open_whatsapp_group(browser, group_name, timeout=30):
     for element in browser.find_elements(By.CSS_SELECTOR, '#pane-side [title]'):
         try:
             if (element.get_attribute('title') or '').strip() == group_name:
-                element.click()
-                WebDriverWait(browser, timeout).until(
-                    lambda driver: current_group(driver) == group_name
-                )
+                click_group_result(element)
                 return
         except WebDriverException:
             continue
@@ -208,13 +241,12 @@ def open_whatsapp_group(browser, group_name, timeout=30):
 
     try:
         result = WebDriverWait(browser, timeout).until(exact_result)
-        result.click()
-        WebDriverWait(browser, timeout).until(
-            lambda driver: current_group(driver) == group_name
-        )
-    except TimeoutException as exc:
+        click_group_result(result, search)
+    except WebDriverException as exc:
+        selected_group = current_group(browser) or 'nenhum grupo identificado'
         raise AffiliateAutomationError(
-            f'Não consegui abrir e confirmar o grupo de origem “{group_name}”.'
+            f'Não consegui abrir e confirmar o grupo de origem “{group_name}”. '
+            f'Grupo atual no WhatsApp: “{selected_group}”.'
         ) from exc
 
 
@@ -289,7 +321,7 @@ def prune_old_offer_records(retention_days=180):
 def mark_stale_processing_as_uncertain(stale_after_minutes=10):
     now = timezone.now()
     cutoff = now - timedelta(minutes=stale_after_minutes)
-    return IncomingAffiliateOffer.objects.filter(
+    uncertain = IncomingAffiliateOffer.objects.filter(
         status=IncomingOfferStatus.PROCESSING,
         updated_at__lt=cutoff,
     ).update(
@@ -299,6 +331,16 @@ def mark_stale_processing_as_uncertain(stale_after_minutes=10):
         published_at=now,
         updated_at=now,
     )
+    failed_preparations = IncomingAffiliateOffer.objects.filter(
+        status=IncomingOfferStatus.PREPARING,
+        updated_at__lt=cutoff,
+    ).update(
+        status=IncomingOfferStatus.FAILED,
+        error_message='O monitor encerrou durante a preparação; nenhuma mensagem foi enviada.',
+        processed_at=now,
+        updated_at=now,
+    )
+    return uncertain + failed_preparations
 
 
 def record_new_offers(offers, source_group):
@@ -372,7 +414,11 @@ def resolve_product_page(browser, short_url):
     product_url = urlunsplit((parts.scheme, parts.netloc, parts.path, '', ''))
     item_id = extract_item_id(product_url)
     if not item_id or not is_marketplace_url(product_url):
-        raise AffiliateAutomationError('O link recebido não resolveu para um anúncio direto válido.')
+        destination = f'{parts.hostname or "destino desconhecido"}{parts.path}'
+        raise AffiliateAutomationError(
+            'O link recebido não resolveu para um anúncio direto válido do Mercado Livre '
+            f'(destino: {destination}).'
+        )
     if not ProductOffer.is_valid_listing_permalink(product_url, item_id):
         raise AffiliateAutomationError('O anúncio redirecionou para uma página de busca ou catálogo.')
 
@@ -514,6 +560,19 @@ def generate_affiliate_link(browser, product_url):
     if len(extract_short_links(link)) != 1:
         raise AffiliateAutomationError('O link gerado não passou na validação do domínio meli.la.')
     return link
+
+
+def validate_affiliate_link(browser, affiliate_url, expected_item_id):
+    if len(extract_short_links(affiliate_url)) != 1:
+        raise AffiliateAutomationError(
+            'O link de afiliado não é um link meli.la válido.'
+        )
+    affiliate_details = resolve_product_page(browser, affiliate_url)
+    if affiliate_details['item_id'] != expected_item_id:
+        raise AffiliateAutomationError(
+            'O link de afiliado redirecionou para um anúncio diferente do produto original.'
+        )
+    return affiliate_details
 
 
 def _message_composer(browser):
@@ -765,12 +824,25 @@ def _store_product_and_publication(inbox, details, affiliate_url):
         return product, publication, ''
 
 
-def process_offer(inbox, browser, whatsapp_tab, affiliate_tab, target_groups):
+def process_offer(inbox, browser, whatsapp_tab, affiliate_tab, target_groups, publish=True):
+    prior_status = IncomingAffiliateOffer.objects.filter(
+        pk=inbox.pk,
+    ).values_list('status', flat=True).first()
+    if prior_status not in (
+        IncomingOfferStatus.PENDING,
+        IncomingOfferStatus.PREPARED,
+    ):
+        return 'Oferta não estava mais pendente.'
+
     claimed = IncomingAffiliateOffer.objects.filter(
         pk=inbox.pk,
-        status=IncomingOfferStatus.PENDING,
+        status=prior_status,
     ).update(
-        status=IncomingOfferStatus.PROCESSING,
+        status=(
+            IncomingOfferStatus.PROCESSING
+            if publish
+            else IncomingOfferStatus.PREPARING
+        ),
         error_message='',
         updated_at=timezone.now(),
     )
@@ -778,22 +850,46 @@ def process_offer(inbox, browser, whatsapp_tab, affiliate_tab, target_groups):
         return 'Oferta não estava mais pendente.'
     inbox.refresh_from_db()
 
+    was_prepared = prior_status == IncomingOfferStatus.PREPARED
     send_attempted = False
     try:
-        browser.switch_to.window(affiliate_tab)
-        details = resolve_product_page(browser, inbox.source_link)
-        affiliate_url = generate_affiliate_link(browser, details['product_url'])
-        product, publication, skip_reason = _store_product_and_publication(
-            inbox,
-            details,
-            affiliate_url,
-        )
-        if skip_reason:
-            inbox.status = IncomingOfferStatus.SKIPPED
-            inbox.error_message = skip_reason
+        if was_prepared:
+            if not (
+                inbox.product_id
+                and inbox.publication_id
+                and inbox.product.affiliate_url
+            ):
+                raise AffiliateAutomationError(
+                    'A oferta marcada como pronta não possui produto, publicação e link afiliado completos.'
+                )
+            product = inbox.product
+            publication = inbox.publication
+            affiliate_url = product.affiliate_url
+            details = None
+        else:
+            browser.switch_to.window(affiliate_tab)
+            details = resolve_product_page(browser, inbox.source_link)
+            affiliate_url = generate_affiliate_link(browser, details['product_url'])
+            validate_affiliate_link(browser, affiliate_url, details['item_id'])
+            product, publication, skip_reason = _store_product_and_publication(
+                inbox,
+                details,
+                affiliate_url,
+            )
+            if skip_reason:
+                inbox.status = IncomingOfferStatus.SKIPPED
+                inbox.error_message = skip_reason
+                inbox.processed_at = timezone.now()
+                inbox.save(update_fields=['status', 'error_message', 'processed_at', 'updated_at'])
+                return skip_reason
+
+        title = details['title'] if details else product.title
+        if not publish:
+            inbox.status = IncomingOfferStatus.PREPARED
+            inbox.error_message = ''
             inbox.processed_at = timezone.now()
             inbox.save(update_fields=['status', 'error_message', 'processed_at', 'updated_at'])
-            return skip_reason
+            return f'Oferta preparada sem envio: {title}'
 
         try:
             publish_offer_in_whatsapp(
@@ -817,13 +913,17 @@ def process_offer(inbox, browser, whatsapp_tab, affiliate_tab, target_groups):
         inbox.save(update_fields=[
             'status', 'error_message', 'processed_at', 'published_at', 'updated_at',
         ])
-        return f'Oferta publicada: {details["title"]}'
+        return f'Oferta publicada: {title}'
     except Exception as exc:
         logger.exception('Falha ao processar oferta recebida %s.', inbox.source_link)
         inbox.status = (
             IncomingOfferStatus.UNCERTAIN
             if send_attempted
-            else IncomingOfferStatus.FAILED
+            else (
+                IncomingOfferStatus.PREPARED
+                if was_prepared and publish
+                else IncomingOfferStatus.FAILED
+            )
         )
         inbox.error_message = str(exc)[:1000]
         inbox.processed_at = timezone.now()

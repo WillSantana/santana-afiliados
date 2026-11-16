@@ -18,7 +18,9 @@ class PublicationStatus(models.TextChoices):
 class IncomingOfferStatus(models.TextChoices):
     IGNORED = 'ignored', 'Link já existente ao iniciar'
     PENDING = 'pending', 'Aguardando processamento automático'
+    PREPARING = 'preparing', 'Preparando produto e afiliado'
     PROCESSING = 'processing', 'Em processamento'
+    PREPARED = 'prepared', 'Pronta para envio'
     PUBLISHED = 'published', 'Publicada automaticamente'
     SKIPPED = 'skipped', 'Ignorada por dados insuficientes ou duplicidade'
     FAILED = 'failed', 'Falha antes do envio'

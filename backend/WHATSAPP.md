@@ -39,6 +39,14 @@ O limite diário deve ficar entre 1 e 100; o intervalo de leitura deve ser de pe
 
 Essa leitura verifica o acesso e registra os links já visíveis como linha de base; não os republica.
 
+Para preparar uma oferta já pendente sem enviar mensagem, limite a execução à origem correspondente:
+
+```powershell
+.\venv\Scripts\python.exe manage.py monitor_whatsapp_offers --once --prepare-only --source-group "Vendas & Divulgações"
+```
+
+O comando resolve o anúncio, gera o link no Link Builder e confirma que o link retorna ao mesmo item do Mercado Livre. Se passar, a oferta fica como **Pronta para envio** no painel. Nenhuma mensagem é enviada; depois, o modo `--send` pode publicar ofertas pendentes ou já preparadas.
+
 ## Publicação automática
 
 Inicie o monitor contínuo com:
@@ -47,7 +55,7 @@ Inicie o monitor contínuo com:
 .\venv\Scripts\python.exe manage.py monitor_whatsapp_offers --send
 ```
 
-Depois de iniciado, novas ofertas elegíveis são publicadas sem aprovação humana individual. O comando pode ser interrompido com `Ctrl+C`. `--once --send` processa no máximo uma oferta pendente e encerra.
+Depois de iniciado, novas ofertas elegíveis são publicadas sem aprovação humana individual. O comando pode ser interrompido com `Ctrl+C`. `--once --send` processa no máximo uma oferta pendente e encerra. Se já houver uma oferta pendente, o comando valida as origens na leitura inicial e evita uma segunda varredura antes do processamento; sem oferta pendente, faz a leitura adicional para detectar links novos.
 
 O monitor:
 

@@ -1,11 +1,13 @@
 from datetime import timedelta
 from decimal import Decimal
-from unittest.mock import Mock, patch
+from io import StringIO
+from unittest.mock import ANY, Mock, patch
 
 from django.test import SimpleTestCase, TestCase, override_settings
 from django.utils import timezone
 from rest_framework.test import APIRequestFactory
 
+from apps.catalog.models import ProductOffer, ProductStatus
 from .affiliate_watcher import (
     AffiliateAutomationError,
     build_incoming_offer_message,
@@ -13,12 +15,16 @@ from .affiliate_watcher import (
     extract_short_links,
     mark_stale_processing_as_uncertain,
     open_automation_browser,
+    open_whatsapp_group,
+    process_offer,
     record_new_offers,
     record_startup_baseline,
 )
 from .models import (
     IncomingAffiliateOffer,
     IncomingOfferStatus,
+    Publication,
+    PublicationStatus,
     WhatsAppGroup,
     WhatsAppGroupConfiguration,
     WhatsAppGroupRole,
@@ -26,6 +32,7 @@ from .models import (
 from .product_urls import extract_item_id, is_marketplace_url, parse_brl_price
 from .services import WhatsAppDispatcherService
 from .views import PublicationViewSet
+from .management.commands.monitor_whatsapp_offers import Command as MonitorWhatsAppOffersCommand
 
 
 class IncomingOfferParsingTests(SimpleTestCase):
@@ -70,6 +77,124 @@ class IncomingOfferParsingTests(SimpleTestCase):
     def test_debugger_must_not_bind_to_network_interfaces(self):
         with self.assertRaisesMessage(AffiliateAutomationError, 'host local'):
             open_automation_browser()
+
+    @patch('selenium.webdriver.support.ui.WebDriverWait')
+    def test_group_selection_clicks_the_conversation_container(self, mock_wait):
+        group_name = 'Grupo de ofertas'
+        current_group = {'name': ''}
+
+        header = Mock()
+        header.get_attribute.return_value = group_name
+        label = Mock()
+        label.get_attribute.return_value = group_name
+        row = Mock()
+        label.find_element.return_value = row
+        row.click.side_effect = lambda: current_group.update(name=group_name)
+
+        def find_elements(_by, selector):
+            if selector == '#main header [data-testid="conversation-info-header-chat-title"]':
+                return [header] if current_group['name'] else []
+            if selector == '#pane-side [title]':
+                return [label]
+            return []
+
+        browser = Mock()
+        browser.find_elements.side_effect = find_elements
+        mock_wait.return_value.until.side_effect = lambda condition: condition(browser)
+
+        open_whatsapp_group(browser, group_name)
+
+        label.click.assert_not_called()
+        row.click.assert_called_once_with()
+        label.find_element.assert_called_once_with(
+            'xpath',
+            './ancestor::*[@data-testid="cell-frame-container"][1]',
+        )
+
+    @patch('selenium.webdriver.support.ui.WebDriverWait')
+    def test_group_selection_retries_once_when_chat_does_not_open(self, mock_wait):
+        from selenium.common.exceptions import TimeoutException
+
+        group_name = 'Grupo de ofertas'
+        current_group = {'name': ''}
+
+        header = Mock()
+        header.get_attribute.return_value = group_name
+        label = Mock()
+        label.get_attribute.return_value = group_name
+        row = Mock()
+        label.find_element.return_value = row
+
+        def find_elements(_by, selector):
+            if selector == '#main header [data-testid="conversation-info-header-chat-title"]':
+                return [header] if current_group['name'] else []
+            if selector == '#pane-side [title]':
+                return [label]
+            return []
+
+        browser = Mock()
+        browser.find_elements.side_effect = find_elements
+        browser.execute_script.side_effect = lambda _script, _target: current_group.update(
+            name=group_name
+        )
+        wait = mock_wait.return_value
+        wait.until.side_effect = [
+            TimeoutException(),
+            lambda condition: condition(browser),
+        ]
+
+        open_whatsapp_group(browser, group_name)
+
+        row.click.assert_called_once_with()
+        browser.execute_script.assert_called_once_with('arguments[0].click()', row)
+
+    @patch('selenium.webdriver.support.ui.WebDriverWait')
+    def test_group_selection_uses_enter_as_final_search_fallback(self, mock_wait):
+        from selenium.common.exceptions import TimeoutException
+        from selenium.webdriver.common.keys import Keys
+
+        group_name = 'Grupo de ofertas'
+        state = {'name': '', 'search_started': False}
+
+        header = Mock()
+        header.get_attribute.return_value = group_name
+        label = Mock()
+        label.get_attribute.return_value = group_name
+        label.is_displayed.return_value = True
+        row = Mock()
+        label.find_element.return_value = row
+        search = Mock()
+        search.click.side_effect = lambda: state.update(search_started=True)
+
+        def send_search_key(*keys):
+            if Keys.ENTER in keys:
+                state['name'] = group_name
+
+        search.send_keys.side_effect = send_search_key
+
+        def find_elements(_by, selector):
+            if selector == '#main header [data-testid="conversation-info-header-chat-title"]':
+                return [header] if state['name'] else []
+            if selector == '#pane-side [title]':
+                return [label] if state['search_started'] else []
+            if selector == '#side div[contenteditable="true"]':
+                return [search]
+            return []
+
+        browser = Mock()
+        browser.find_elements.side_effect = find_elements
+        wait = mock_wait.return_value
+        wait.until.side_effect = [
+            label,
+            TimeoutException(),
+            TimeoutException(),
+            lambda condition: condition(browser),
+        ]
+
+        open_whatsapp_group(browser, group_name)
+
+        self.assertIn(Keys.ENTER, [entry.args[0] for entry in search.send_keys.call_args_list])
+        row.click.assert_called_once_with()
 
 
 class EvolutionDestinationTests(SimpleTestCase):
@@ -162,6 +287,233 @@ class EvolutionDestinationTests(SimpleTestCase):
 
 
 class IncomingOfferPersistenceTests(TestCase):
+    def test_prepare_offer_validates_affiliate_and_does_not_send(self):
+        offer = IncomingAffiliateOffer.objects.create(
+            source_link='https://meli.la/Original123',
+            source_group='Grupo de origem',
+        )
+        details = {
+            'item_id': 'MLB1234567890',
+            'title': 'Liquidificador de teste',
+            'price': Decimal('129.90'),
+            'original_price': Decimal('199.90'),
+            'product_url': 'https://produto.mercadolivre.com.br/MLB-1234567890-item',
+            'thumbnail': 'https://http2.mlstatic.com/test.jpg',
+        }
+        affiliate_url = 'https://meli.la/Affiliate123'
+        browser = Mock()
+
+        with (
+            patch(
+                'apps.publications.affiliate_watcher.resolve_product_page',
+                return_value=details,
+            ) as resolve_product_page,
+            patch(
+                'apps.publications.affiliate_watcher.generate_affiliate_link',
+                return_value=affiliate_url,
+            ),
+            patch(
+                'apps.publications.affiliate_watcher.publish_offer_in_whatsapp',
+            ) as publish_offer,
+        ):
+            result = process_offer(
+                offer,
+                browser,
+                'whatsapp-tab',
+                'affiliate-tab',
+                ['Grupo de destino'],
+                publish=False,
+            )
+
+        offer.refresh_from_db()
+        self.assertIn('Oferta preparada sem envio', result)
+        self.assertEqual(offer.status, IncomingOfferStatus.PREPARED)
+        self.assertEqual(resolve_product_page.call_count, 2)
+        self.assertEqual(offer.product.affiliate_url, affiliate_url)
+        self.assertEqual(offer.publication.status, PublicationStatus.APPROVED)
+        self.assertIsNone(offer.published_at)
+        publish_offer.assert_not_called()
+
+    def test_prepare_offer_rejects_affiliate_link_for_another_product(self):
+        offer = IncomingAffiliateOffer.objects.create(
+            source_link='https://meli.la/Original456',
+            source_group='Grupo de origem',
+        )
+        details = {
+            'item_id': 'MLB1234567890',
+            'title': 'Liquidificador de teste',
+            'price': Decimal('129.90'),
+            'original_price': None,
+            'product_url': 'https://produto.mercadolivre.com.br/MLB-1234567890-item',
+            'thumbnail': '',
+        }
+        wrong_details = {**details, 'item_id': 'MLB9876543210'}
+
+        with (
+            patch(
+                'apps.publications.affiliate_watcher.resolve_product_page',
+                side_effect=[details, wrong_details],
+            ),
+            patch(
+                'apps.publications.affiliate_watcher.generate_affiliate_link',
+                return_value='https://meli.la/Affiliate456',
+            ),
+            patch(
+                'apps.publications.affiliate_watcher._store_product_and_publication',
+            ) as store_offer,
+        ):
+            result = process_offer(
+                offer,
+                Mock(),
+                'whatsapp-tab',
+                'affiliate-tab',
+                [],
+                publish=False,
+            )
+
+        offer.refresh_from_db()
+        self.assertIn('anúncio diferente', result)
+        self.assertEqual(offer.status, IncomingOfferStatus.FAILED)
+        store_offer.assert_not_called()
+
+    def test_sending_a_prepared_offer_reuses_the_validated_affiliate_link(self):
+        product = ProductOffer.objects.create(
+            item_id='MLB1234567890',
+            title='Liquidificador de teste',
+            price=Decimal('129.90'),
+            product_url='https://produto.mercadolivre.com.br/MLB-1234567890-item',
+            affiliate_url='https://meli.la/Affiliate789',
+            status=ProductStatus.APPROVED,
+        )
+        publication = Publication.objects.create(
+            product=product,
+            title='SANTANA INDICA',
+            message_text='Oferta de teste',
+            status=PublicationStatus.APPROVED,
+        )
+        offer = IncomingAffiliateOffer.objects.create(
+            source_link='https://meli.la/Original789',
+            source_group='Grupo de origem',
+            product=product,
+            publication=publication,
+            status=IncomingOfferStatus.PREPARED,
+        )
+
+        with (
+            patch(
+                'apps.publications.affiliate_watcher.generate_affiliate_link',
+            ) as generate_affiliate_link,
+            patch(
+                'apps.publications.affiliate_watcher.publish_offer_in_whatsapp',
+                return_value=['Grupo de destino'],
+            ) as publish_offer,
+        ):
+            result = process_offer(
+                offer,
+                Mock(),
+                'whatsapp-tab',
+                'affiliate-tab',
+                ['Grupo de destino'],
+            )
+
+        offer.refresh_from_db()
+        publication.refresh_from_db()
+        self.assertIn('Oferta publicada', result)
+        self.assertEqual(offer.status, IncomingOfferStatus.PUBLISHED)
+        self.assertEqual(publication.status, PublicationStatus.PUBLISHED)
+        generate_affiliate_link.assert_not_called()
+        publish_offer.assert_called_once_with(
+            ANY,
+            'whatsapp-tab',
+            ['Grupo de destino'],
+            publication.message_text,
+            product.affiliate_url,
+        )
+
+    @override_settings(AFFILIATE_BOT_DAILY_LIMIT=20)
+    def test_one_shot_send_skips_rescan_for_an_existing_pending_offer(self):
+        offer = IncomingAffiliateOffer.objects.create(
+            source_link='https://meli.la/Pending123',
+            source_group='Grupo de origem',
+        )
+        groups = [
+            {'name': 'Grupo de origem', 'role': WhatsAppGroupRole.SOURCE},
+            {'name': 'Grupo de destino', 'role': WhatsAppGroupRole.DESTINATION},
+        ]
+        browser = Mock()
+        browser.current_window_handle = 'whatsapp-tab'
+        command = MonitorWhatsAppOffersCommand()
+        command.stdout = StringIO()
+
+        with (
+            patch(
+                'apps.publications.management.commands.monitor_whatsapp_offers.get_whatsapp_groups',
+                return_value=groups,
+            ),
+            patch(
+                'apps.publications.management.commands.monitor_whatsapp_offers.get_source_group_names',
+                return_value=['Grupo de origem'],
+            ),
+            patch(
+                'apps.publications.management.commands.monitor_whatsapp_offers.get_destination_groups',
+                return_value=[{'name': 'Grupo de destino'}],
+            ),
+            patch(
+                'apps.publications.management.commands.monitor_whatsapp_offers.acquire_process_lock',
+                return_value='lock',
+            ),
+            patch(
+                'apps.publications.management.commands.monitor_whatsapp_offers.release_process_lock',
+            ),
+            patch(
+                'apps.publications.management.commands.monitor_whatsapp_offers.prune_old_offer_records',
+                return_value=0,
+            ),
+            patch(
+                'apps.publications.management.commands.monitor_whatsapp_offers.mark_stale_processing_as_uncertain',
+                return_value=0,
+            ),
+            patch(
+                'apps.publications.management.commands.monitor_whatsapp_offers.open_automation_browser',
+                return_value=browser,
+            ),
+            patch(
+                'apps.publications.management.commands.monitor_whatsapp_offers.read_group_offers',
+                return_value={},
+            ) as read_group_offers,
+            patch(
+                'apps.publications.management.commands.monitor_whatsapp_offers.record_startup_baseline',
+            ),
+            patch(
+                'apps.publications.management.commands.monitor_whatsapp_offers.daily_publication_count',
+                return_value=0,
+            ),
+            patch(
+                'apps.publications.management.commands.monitor_whatsapp_offers.wait_for_publish_window',
+            ),
+            patch(
+                'apps.publications.management.commands.monitor_whatsapp_offers.process_offer',
+                side_effect=lambda pending, *_args, **_kwargs: (
+                    IncomingAffiliateOffer.objects.filter(pk=pending.pk).update(
+                        status=IncomingOfferStatus.PUBLISHED
+                    )
+                    and 'Oferta enviada'
+                ),
+            ) as process_offer,
+        ):
+            command.handle(
+                once=True,
+                send=True,
+                prepare_only=False,
+                source_group=None,
+                retry_failed=False,
+            )
+
+        self.assertEqual(read_group_offers.call_count, 1)
+        process_offer.assert_called_once()
+        offer.refresh_from_db()
+        self.assertEqual(offer.status, IncomingOfferStatus.PUBLISHED)
+
     def test_startup_links_are_ignored_and_new_links_are_deduplicated(self):
         baseline = {'https://meli.la/Old123': ''}
         record_startup_baseline(baseline, 'Grupo de Vendas')
@@ -192,15 +544,25 @@ class IncomingOfferPersistenceTests(TestCase):
             source_group='Grupo de Vendas',
             status=IncomingOfferStatus.PROCESSING,
         )
-        IncomingAffiliateOffer.objects.filter(pk=record.pk).update(
+        preparation = IncomingAffiliateOffer.objects.create(
+            source_link='https://meli.la/InterruptedPreparation123',
+            source_group='Grupo de Vendas',
+            status=IncomingOfferStatus.PREPARING,
+        )
+        IncomingAffiliateOffer.objects.filter(
+            pk__in=(record.pk, preparation.pk),
+        ).update(
             updated_at=timezone.now() - timedelta(minutes=30)
         )
 
         updated = mark_stale_processing_as_uncertain()
 
         record.refresh_from_db()
-        self.assertEqual(updated, 1)
+        preparation.refresh_from_db()
+        self.assertEqual(updated, 2)
         self.assertEqual(record.status, IncomingOfferStatus.UNCERTAIN)
+        self.assertEqual(preparation.status, IncomingOfferStatus.FAILED)
+        self.assertIn('nenhuma mensagem foi enviada', preparation.error_message)
 
     @override_settings(
         AFFILIATE_BOT_SOURCE_GROUP='Promozone #46',

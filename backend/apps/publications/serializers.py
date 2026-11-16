@@ -32,6 +32,7 @@ class GeneratePublicationSerializer(serializers.Serializer):
 
 class IncomingAffiliateOfferSerializer(serializers.ModelSerializer):
     product_title = serializers.SerializerMethodField()
+    affiliate_url = serializers.SerializerMethodField()
 
     class Meta:
         model = IncomingAffiliateOffer
@@ -42,6 +43,7 @@ class IncomingAffiliateOfferSerializer(serializers.ModelSerializer):
             'coupon',
             'status',
             'product_title',
+            'affiliate_url',
             'error_message',
             'received_at',
             'processed_at',
@@ -50,3 +52,6 @@ class IncomingAffiliateOfferSerializer(serializers.ModelSerializer):
 
     def get_product_title(self, offer):
         return offer.product.title if offer.product_id else ''
+
+    def get_affiliate_url(self, offer):
+        return offer.product.affiliate_url if offer.product_id else ''

@@ -45,6 +45,15 @@ class Command(BaseCommand):
             help='Faz uma leitura, processa no máximo uma oferta e encerra.',
         )
         parser.add_argument(
+            '--prepare-only',
+            action='store_true',
+            help='Prepara uma oferta pendente e valida o afiliado, sem enviar ao WhatsApp.',
+        )
+        parser.add_argument(
+            '--source-group',
+            help='Limita esta execução a uma origem configurada pelo nome exato.',
+        )
+        parser.add_argument(
             '--retry-failed',
             action='store_true',
             help='Recoloca na fila falhas ocorridas antes de tentar enviar.',
@@ -53,6 +62,12 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         groups = get_whatsapp_groups()
         source_groups = get_source_group_names(groups)
+        if options['source_group']:
+            if options['source_group'] not in source_groups:
+                raise CommandError(
+                    f'A origem “{options["source_group"]}” não está configurada.'
+                )
+            source_groups = [options['source_group']]
         target_groups = [
             group['name'] for group in get_destination_groups(groups)
         ]
@@ -63,6 +78,10 @@ class Command(BaseCommand):
             raise CommandError('Cadastre ao menos um grupo de origem na configuração do WhatsApp.')
         if options['send'] and not target_groups:
             raise CommandError('Cadastre ao menos um grupo de destino antes de ativar o envio.')
+        if options['prepare_only'] and options['send']:
+            raise CommandError('--prepare-only não pode ser usado junto com --send.')
+        if options['prepare_only'] and not options['once']:
+            raise CommandError('--prepare-only exige --once para limitar a operação a uma oferta.')
         if not 1 <= daily_limit <= 100:
             raise CommandError('AFFILIATE_BOT_DAILY_LIMIT deve estar entre 1 e 100.')
         if poll_interval < 3:
@@ -115,6 +134,13 @@ class Command(BaseCommand):
                 self.stdout.write('Envio automático ativado via WhatsApp Web/Selenium.')
                 browser.switch_to.new_window('tab')
                 affiliate_tab = browser.current_window_handle
+            elif options['prepare_only']:
+                self.stdout.write(
+                    'Modo de preparação: o produto e o link afiliado serão validados; '
+                    'nenhuma mensagem será enviada.'
+                )
+                browser.switch_to.new_window('tab')
+                affiliate_tab = browser.current_window_handle
             else:
                 affiliate_tab = None
                 self.stdout.write(
@@ -124,9 +150,31 @@ class Command(BaseCommand):
                     )
                 )
 
+            skip_rescan = (
+                options['once']
+                and (options['send'] or options['prepare_only'])
+                and IncomingAffiliateOffer.objects.filter(
+                    source_group__in=source_groups,
+                    status__in=(
+                        (IncomingOfferStatus.PENDING, IncomingOfferStatus.PREPARED)
+                        if options['send']
+                        else (IncomingOfferStatus.PENDING,)
+                    ),
+                ).exists()
+            )
+            if skip_rescan:
+                self.stdout.write(
+                    'Já existe uma oferta pendente; usando a leitura inicial para validar as origens.'
+                )
+
             while True:
                 configured_groups = get_whatsapp_groups()
                 configured_sources = get_source_group_names(configured_groups)
+                if options['source_group']:
+                    configured_sources = [
+                        source for source in configured_sources
+                        if source == options['source_group']
+                    ]
                 if not configured_sources:
                     raise CommandError(
                         'Todos os grupos de origem foram removidos. Configure ao menos uma origem.'
@@ -136,43 +184,54 @@ class Command(BaseCommand):
                     group: links for group, links in seen_links_by_group.items()
                     if group in active_sources
                 }
-                for source_group in configured_sources:
-                    browser.switch_to.window(whatsapp_tab)
-                    if source_group not in seen_links_by_group:
-                        initial_offers = read_group_offers(browser, source_group)
-                        record_startup_baseline(initial_offers, source_group)
-                        seen_links_by_group[source_group] = set(initial_offers)
-                        self.stdout.write(
-                            self.style.WARNING(
-                                f'Nova origem “{source_group}”; links atuais registrados como histórico.'
+                if not skip_rescan:
+                    for source_group in configured_sources:
+                        browser.switch_to.window(whatsapp_tab)
+                        if source_group not in seen_links_by_group:
+                            initial_offers = read_group_offers(browser, source_group)
+                            record_startup_baseline(initial_offers, source_group)
+                            seen_links_by_group[source_group] = set(initial_offers)
+                            self.stdout.write(
+                                self.style.WARNING(
+                                    f'Nova origem “{source_group}”; links atuais registrados como histórico.'
+                                )
                             )
-                        )
-                        continue
+                            continue
 
-                    offers = read_group_offers(browser, source_group)
-                    seen_links = seen_links_by_group[source_group]
-                    unseen_offers = {
-                        link: coupon
-                        for link, coupon in offers.items()
-                        if link not in seen_links
-                    }
-                    seen_links.update(unseen_offers)
-                    new_offers = record_new_offers(unseen_offers, source_group)
-                    for offer in new_offers:
-                        self.stdout.write(
-                            f'Novo link registrado em “{source_group}”: {offer.source_link}'
-                        )
+                        offers = read_group_offers(browser, source_group)
+                        seen_links = seen_links_by_group[source_group]
+                        unseen_offers = {
+                            link: coupon
+                            for link, coupon in offers.items()
+                            if link not in seen_links
+                        }
+                        seen_links.update(unseen_offers)
+                        new_offers = record_new_offers(unseen_offers, source_group)
+                        for offer in new_offers:
+                            self.stdout.write(
+                                f'Novo link registrado em “{source_group}”: {offer.source_link}'
+                            )
 
-                if options['send']:
+                if options['send'] or options['prepare_only']:
                     processed = 0
                     while not options['once'] or processed == 0:
-                        if daily_publication_count() >= daily_limit:
+                        if options['send'] and daily_publication_count() >= daily_limit:
                             self.stdout.write('Teto diário alcançado; links novos ficam na fila.')
                             break
                         configured_sources = get_source_group_names(get_whatsapp_groups())
+                        if options['source_group']:
+                            configured_sources = [
+                                source for source in configured_sources
+                                if source == options['source_group']
+                            ]
+                        statuses_to_process = (
+                            (IncomingOfferStatus.PENDING, IncomingOfferStatus.PREPARED)
+                            if options['send']
+                            else (IncomingOfferStatus.PENDING,)
+                        )
                         pending = IncomingAffiliateOffer.objects.filter(
                             source_group__in=configured_sources,
-                            status=IncomingOfferStatus.PENDING
+                            status__in=statuses_to_process,
                         ).order_by('received_at', 'id').first()
                         if not pending:
                             break
@@ -182,11 +241,12 @@ class Command(BaseCommand):
                             group['name']
                             for group in get_destination_groups(configured_groups)
                         ]
-                        if not target_groups:
+                        if options['send'] and not target_groups:
                             raise CommandError(
                                 'Nenhum grupo de destino está configurado; envio interrompido.'
                             )
-                        wait_for_publish_window()
+                        if options['send']:
+                            wait_for_publish_window()
                         self.stdout.write(f'Processando oferta recebida: {pending.source_link}')
                         result = process_offer(
                             pending,
@@ -194,6 +254,7 @@ class Command(BaseCommand):
                             whatsapp_tab,
                             affiliate_tab,
                             target_groups,
+                            publish=options['send'],
                         )
                         self.stdout.write(result)
                         processed += 1
