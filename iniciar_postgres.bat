@@ -59,19 +59,10 @@ if %errorlevel% neq 0 (
     exit /b 1
 )
 
-REM ----- 5. Cria admin e seed data -----
+REM ----- 5. Cria admin -----
 echo.
-echo [5/5] Criando superusuario e dados de demonstracao...
+echo [5/5] Criando superusuario...
 .\venv\Scripts\python.exe create_admin.py
-
-REM Verifica se ja tem dados
-for /f "tokens=*" %%i in ('.\venv\Scripts\python.exe -c "import os, django; os.environ[\"DJANGO_SETTINGS_MODULE\"]=\"config.settings\"; django.setup(); from apps.catalog.models import ProductOffer; print(ProductOffer.objects.count())" 2^>nul') do set COUNT=%%i
-if "%COUNT%"=="0" (
-    echo Inserindo dados de demonstracao...
-    .\venv\Scripts\python.exe seed_data.py
-) else (
-    echo Dados ja existem no banco ^(%COUNT% registros^), pulando seed.
-)
 
 echo.
 echo ==========================================

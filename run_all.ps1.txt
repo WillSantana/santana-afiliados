@@ -1,0 +1,89 @@
+# -------------------------------------------------
+# run_all.ps1 – Executa todo o fluxo do projeto
+# -------------------------------------------------
+# 1️⃣  Inicia o PostgreSQL
+# 2️⃣  Ativa o virtual‑env (venv)
+# 3️⃣  Garante as migrações do Django
+# 4️⃣  Inicia o backend (API Django)
+# 5️⃣  Inicia o frontend (React/Vite)
+# 6️⃣  Abre a janela Chrome dedicada (WhatsApp Web + Mercado Livre)
+# 7️⃣  Executa o monitor de ofertas uma única vez e envia
+# -------------------------------------------------
+
+# ----- Configurações -------------------------------------------------
+$projectRoot = Split-Path -Parent $MyInvocation.MyCommand.Definition
+Set-Location $projectRoot
+
+# Caminhos auxiliares (ajuste se necessário)
+$backendDir   = Join-Path $projectRoot 'backend'
+$frontendDir  = Join-Path $projectRoot 'frontend'
+$venvActivate = Join-Path $backendDir 'venv\Scripts\Activate.ps1'
+
+# -------------------------------------------------
+function Write-Info([string]$msg) {
+    Write-Host "`n=== $msg ===`n" -ForegroundColor Cyan
+}
+# -------------------------------------------------
+# 1️⃣  Inicia o PostgreSQL (script já existente)
+Write-Info "Iniciando PostgreSQL"
+& "$projectRoot\iniciar_postgres.bat"
+if ($LASTEXITCODE -ne 0) {
+    Write-Error "Falha ao iniciar o PostgreSQL. Verifique o log em pgsql\server.log"
+    exit 1
+}
+
+# 2️⃣  Ativa o virtual‑env
+Write-Info "Ativando o virtual‑env (venv)"
+& $venvActivate
+if ($LASTEXITCODE -ne 0) {
+    Write-Error "Não foi possível ativar o venv."
+    exit 1
+}
+
+# 3️⃣  Garante migrações Django
+Write-Info "Aplicando migrações Django"
+Set-Location $backendDir
+python -m pip install --upgrade pip   # reforça que pip está atualizado
+pip install -r requirements.txt       # caso alguma dependência ainda não esteja instalada
+python manage.py makemigrations
+python manage.py migrate
+if ($LASTEXITCODE -ne 0) {
+    Write-Error "Erro nas migrações. Abortando."
+    exit 1
+}
+
+# 4️⃣  Inicia o backend (API) em background
+Write-Info "Iniciando o backend Django"
+Start-Process -FilePath "python" -ArgumentList "manage.py runserver 0.0.0.0:8000" -WorkingDirectory $backendDir -NoNewWindow
+
+# 5️⃣  Inicia o frontend (React) em background
+Write-Info "Iniciando o frontend React"
+Set-Location $frontendDir
+Start-Process -FilePath "npm" -ArgumentList "run dev" -WorkingDirectory $frontendDir -NoNewWindow
+
+# 6️⃣  Abre a janela Chrome dedicada (WhatsApp Web + Mercado Livre)
+Write-Info "Abrindo Chrome dedicado (WhatsApp Web + Mercado Livre)"
+& "$projectRoot\iniciar_chrome_whatsapp.bat"
+if ($LASTEXITCODE -ne 0) {
+    Write-Warning "O script iniciar_chrome_whatsapp.bat retornou código de erro, mas o fluxo continua."
+}
+
+# 7️⃣  Executa o monitor de ofertas (uma única execução que envia)
+Write-Info "Executando monitor de ofertas (processa e envia pendentes)"
+# Aguarda alguns segundos para garantir que o Chrome já esteja pronto
+Start-Sleep -Seconds 5
+python manage.py monitor_whatsapp_offers --once --send
+if ($LASTEXITCODE -ne 0) {
+    Write-Warning "O monitor terminou com erro; verifique a saída para detalhes."
+}
+
+# -------------------------------------------------
+Write-Info "Tudo pronto! 🎉"
+Write-Host "• API   : http://localhost:8000/api/"
+Write-Host "• Admin : http://localhost:8000/admin/"
+Write-Host "• UI    : http://localhost:5173/"
+Write-Host "Lembre‑se de:"
+Write-Host "  • Fazer login no WhatsApp Web e no Mercado Livre na janela Chrome aberta."
+Write-Host "  • Verificar o painel de afiliados no frontend."
+Write-Host "Pressione qualquer tecla para encerrar o script..."
+[void][System.Console]::ReadKey($true)

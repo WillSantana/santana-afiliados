@@ -19,15 +19,6 @@ services:
       timeout: 5s
       retries: 5
 
-  redis:
-    image: redis:7-alpine
-    container_name: santana_redis
-    restart: always
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
-
   backend:
     build:
       context: ../backend
@@ -46,33 +37,9 @@ services:
     environment:
       - USE_SQLITE=False
       - DB_HOST=db
-      - REDIS_URL=redis://redis:6379/0
-      - CELERY_BROKER_URL=redis://redis:6379/0
     depends_on:
       db:
         condition: service_healthy
-      redis:
-        condition: service_started
-
-  celery_worker:
-    build:
-      context: ../backend
-      dockerfile: Dockerfile
-    container_name: santana_celery_worker
-    restart: always
-    command: celery -A config worker -l info
-    volumes:
-      - ../backend:/app
-    env_file:
-      - ../.env
-    environment:
-      - USE_SQLITE=False
-      - DB_HOST=db
-      - REDIS_URL=redis://redis:6379/0
-      - CELERY_BROKER_URL=redis://redis:6379/0
-    depends_on:
-      - backend
-      - redis
 
   frontend:
     build:
@@ -104,5 +71,4 @@ services:
 
 volumes:
   postgres_data:
-  redis_data:
   evolution_instances:

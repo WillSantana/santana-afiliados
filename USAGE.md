@@ -1,87 +1,162 @@
-# Apivendas – End‑User Guide
+# Guia de uso — Santana Afiliados Bot
 
-## Overview
-`apivendas` is a small marketplace‑automation tool that scrapes product offers from **Mercado Libre**, formats an affiliate message and can post it automatically to a WhatsApp group.
+## Pré-requisitos
 
-## Prerequisites (already covered in the individual README files)
-- **Backend (Django)** – Python 3.11+, PostgreSQL running locally (or remote). See `backend/README.md`.
-- **Frontend (React + Vite)** – Node 20+, pnpm. See `frontend/README.md`.
-- **WhatsApp gateway** – Evolution API (Docker) or any compatible service. See the *WhatsApp Integration* section below.
+- PostgreSQL iniciado (`iniciar_postgres.bat` ou via `pgsql\pgsql\bin\pg_ctl.exe start`)
+- Google Chrome instalado
+- Node.js e Python com dependências instaladas (`pip install -r requirements.txt` e `npm install`)
 
 ---
-## 1️⃣ Starting the stack
-1. **Database** – Ensure the PostgreSQL daemon is running (the background task `task‑568` does this automatically). If you stopped it, run:
-   ```powershell
-   .\pgsql\pgsql\bin\postgres.exe -D "C:\projetos wilson\apivendas\pgsql\data" -p 5432
-   ```
-2. **Backend** – From the project root:
-   ```powershell
-   cd backend
-   .\venv\Scripts\activate
-   python manage.py runserver 0.0.0.0:8000
-   ```
-   The API will listen on **http://localhost:8000/**.
-3. **Frontend** – In another terminal:
-   ```powershell
-   cd frontend
-   pnpm dev
-   ```
-   Open **http://localhost:5173/** in a browser.
-4. **WhatsApp gateway (optional, required for automatic posting)** – Start Evolution API:
-   ```bash
-   docker run -d -p 8080:8080 ghcr.io/evolution-api/evolution-api:latest
-   ```
-   Wait for the container logs, scan the QR‑code with your phone and keep the session active.
+
+## 1. Iniciar a API (backend)
+
+```powershell
+Set-Location "C:\projetos wilson\apivendas\backend"
+.\venv\Scripts\python.exe manage.py migrate
+.\venv\Scripts\python.exe manage.py runserver
+```
+
+A API ficará disponível em `http://localhost:8000`.
 
 ---
-## 2️⃣ Configuring WhatsApp inside the UI
-1. Click the **⚙️ Settings** button (top‑right) → *WhatsApp Configuration*.
-2. **Phone number** – Enter the number that you used to login to WhatsApp (including country code, e.g. `55 11 98765‑4321`).
-3. **Add groups** – Press **+** and type the *group JID* (ends with `@g.us`).
-   - You can obtain the JID by opening the group in WhatsApp Web, clicking the group name → *Group info* → *Group ID* (or use the Evolution API endpoint `/groups`).
-4. Choose one group as **Active** – the selected group will receive every automatic publication.
-5. Press **Save** – the data is stored in `localStorage`; the same configuration will be loaded next time you open the app.
-> **Note:** The frontend only stores the config locally. For multi‑device usage you can expose a small API (`/whatsapp/config/`) on the backend and replace the `localStorage` calls – see the “Future improvements” section.
+
+## 2. Iniciar o painel (frontend)
+
+```powershell
+Set-Location "C:\projetos wilson\apivendas\frontend"
+npm run dev
+```
+
+Acesse `http://localhost:5173`. O painel possui as seguintes abas:
+
+| Aba | O que mostra |
+|-----|--------------|
+| **Dashboard** | Status do bot, Chrome e conexões; métricas do dia (ofertas, links, envios); grupos monitorados; atividade recente |
+| **Ofertas Encontradas** | Todas as ofertas capturadas nos grupos, com texto original da mensagem, preço, status, link afiliado |
+| **Links de Afiliados** | Todos os links de afiliado gerados, com link original, link afiliado, data e status de validação |
+| **Publicações por Grupo** | Envios individuais por grupo de destino, com status por grupo, link utilizado e erros |
+| **Catálogo** | Produtos indexados |
 
 ---
-## 3️⃣ Using the application
-### Searching offers
-1. In the **Dashboard** type a search term (e.g. `smartphone`).
-2. Press **Buscar** – the backend returns a list of offers.
-3. Each card shows a **Ver no ML** button. **Now it opens the exact product page** (direct URL) instead of the generic search list.
-   - If the product does not have a known direct URL, the system falls back to a safe Mercado Libre search query.
 
-### Publishing an offer
-1. Click **Publicar** on a card.
-2. In the modal you can:
-   - Edit the affiliate link (the system already inserts your `ML` affiliate token).
-   - Choose a *custom caption*.
-   - Press **Postar no WhatsApp**.
-3. The modal will automatically use the **Active group** you set in the configuration and send the image + caption via the Evolution API.
-   - A toast notification tells you if the request succeeded (`status 200`) or failed (check the console for the error response).
+## 3. Configurar os grupos
 
-### Dispatch next offer (batch mode)
-- After publishing a few offers you can click **Disparar Próxima**. The backend will pick the next pending offer and publish it using the same WhatsApp configuration.
-- You can set an interval (30 min, 1 h, etc.) with a simple **cron** on the backend (`celery beat` or a custom management command) – not shipped yet, but the endpoint is ready.
+No painel, clique em **Ofertas Encontradas → Configurar grupos** para:
 
----
-## 4️⃣ Troubleshooting common issues
-| Symptom | Likely cause | Fix |
-|---|---|---|
-| *“Page not found”* when clicking **Ver no ML** | Missing entry in `DIRECT_LINKS` map | Add the product ID and real URL to the map in `frontend/src/components/ProductCard.jsx` (or report to the maintainer). |
-| *WhatsApp messages not arriving* | Evolution API not running / QR‑code not scanned | Run `docker ps` to see the container, view its logs (`docker logs <container>`), scan the QR‑code again. |
-| *`WHATSAPP_API_ENABLED=False`* in the UI | The feature is hidden deliberately | Set `VITE_WHATSAPP_ENABLED=true` in `frontend/.env.local` and reload the page. |
-| *Database connection error* | PostgreSQL daemon stopped | Restart task‑568 or run the command shown in **Starting the stack**. |
-| *CORS error* | Backend missing origin | Add `http://localhost:5173` to `CORS_ALLOWED_ORIGINS` in `backend/settings.py`. |
+- Definir quais grupos serão **monitorados** (origem)
+- Definir quais grupos receberão as publicações (destino) com seu **JID** (`123456789@g.us`)
+
+As alterações são salvas no banco de dados e passam a valer sem reiniciar o monitor.
+
+Também é possível configurar via `.env` na raiz do projeto:
+
+```dotenv
+AFFILIATE_BOT_SOURCE_GROUP="Nome do grupo de origem"
+AFFILIATE_BOT_TARGET_GROUP=NomeDoGrupoDestino
+AFFILIATE_BOT_DAILY_LIMIT=20
+AFFILIATE_BOT_POLL_INTERVAL_SECONDS=10
+AFFILIATE_BOT_MIN_INTERVAL_SECONDS=120
+AFFILIATE_BOT_CHROME_DEBUGGER_ADDRESS=127.0.0.1:9222
+```
 
 ---
-## 5️⃣ Future improvements (optional for you)
-- **Server‑side persistence of WhatsApp config** – expose `/whatsapp/config/` endpoints and store the data in the database.
-- **Celery scheduler** – automate the dispatch‑next‑offer flow with configurable intervals.
-- **Docker Compose** – single‑command bring‑up of PostgreSQL, Django, Vite, and Evolution API.
-- **Multi‑language support** – add i18n strings for Portuguese/English.
+
+## 4. Iniciar o Chrome e fazer login
+
+Execute na raiz do projeto:
+
+```
+iniciar_chrome_whatsapp.bat
+```
+
+No Chrome que abrir (perfil dedicado ao bot):
+1. Faça login no **WhatsApp Web**.
+2. Faça login no **Mercado Livre** (conta de afiliado).
+3. **Não use esse perfil para navegação normal.**
 
 ---
-**That’s it!** You now have a fully working stack, documentation for developers (see the `backend/README.md` and `frontend/README.md`) and a user guide on how to operate the system and send messages to WhatsApp groups.
 
-_Last updated: 2026‑11‑11_
+## 5. Executar o monitor
+
+### Apenas observar (sem publicar)
+
+```powershell
+Set-Location "C:\projetos wilson\apivendas\backend"
+.\venv\Scripts\python.exe manage.py monitor_whatsapp_offers --once
+```
+
+Faz uma leitura dos grupos configurados, registra os links visíveis no momento como histórico e encerra. Os links já visíveis são ignorados na próxima execução (servem como baseline).
+
+### Monitoramento contínuo com publicação automática
+
+```powershell
+.\venv\Scripts\python.exe manage.py monitor_whatsapp_offers --send
+```
+
+- Monitora os grupos de origem em loop.
+- Captura links `meli.la` **e** links tradicionais do Mercado Livre (`mercadolivre.com.br`, `mercadolivre.com`).
+- Gera o link de afiliado via Mercado Livre Afiliados (ML Link Builder).
+- Publica nos grupos de destino autorizados.
+- Registra cada envio individualmente por grupo.
+- Se uma oferta falhar, registra o erro e **continua monitorando** (não para o bot).
+- Use `Ctrl+C` para interromper.
+
+### Flags disponíveis
+
+| Flag | Descrição |
+|------|-----------|
+| `--send` | Ativa geração de links de afiliado e publicação automática |
+| `--once` | Executa uma única rodada e encerra |
+| `--prepare-only --once` | Gera e valida o link de afiliado sem publicar (exige `--once`) |
+| `--retry-failed` | Recoloca na fila as ofertas com status FAILED para reprocessamento |
+| `--reprocess-ignored` | Recoloca na fila as ofertas que foram salvas como histórico/ignoradas (as 13 que aparecem no painel) |
+| `--process-existing` | Não ignora os links já visíveis nos grupos durante a inicialização (coloca todos na fila) |
+| `--all-groups` | Descobre automaticamente **todos os grupos** visíveis no WhatsApp Web e os monitora |
+| `--send-all-groups` | Republica as ofertas em **todos os outros grupos** descobertos (exceto o grupo de origem da oferta) |
+| `--source-group "Nome"` | Monitora apenas o grupo de origem especificado |
+
+---
+
+## 6. O que o bot valida antes de publicar
+
+1. **Captura o link** (meli.la ou mercadolivre.com.br/com) da mensagem do grupo.
+2. **Resolve a URL** e identifica o produto no Mercado Livre.
+3. **Gera o link de afiliado** usando o ML Link Builder (conta autenticada no Chrome dedicado).
+4. **Valida o link afiliado** — confirma que pertence ao mesmo produto.
+5. **Publica somente se o link for válido** — nunca usa o link original como link de afiliado.
+6. **Registra cada envio por grupo** — uma oferta enviada a 5 grupos gera 5 registros independentes.
+
+---
+
+## 7. Controle de duplicidade
+
+- Links já processados não são reprocessados.
+- Publicações bem-sucedidas não são reenviadas ao mesmo grupo.
+- Uma oferta pode ser enviada a vários grupos destino sem duplicidade entre grupos.
+
+---
+
+## 8. Solução de problemas
+
+| Sintoma | Causa provável | O que fazer |
+|---------|---------------|-------------|
+| Backend não inicia | PostgreSQL parado | Executar `iniciar_postgres.bat` |
+| `migrate` falha | Migration pendente ou banco desatualizado | Verificar se o banco está acessível e rodar `migrate` novamente |
+| Chrome não conecta | Porta 9222 ocupada ou Chrome parado | Fechar outras instâncias do Chrome e rodar `iniciar_chrome_whatsapp.bat` |
+| Bot não encontra grupos | Grupos não configurados | Configurar no painel ou no `.env` |
+| Link de afiliado não gerado | Interface do ML Link Builder mudou ou sessão expirou | Fazer login novamente no ML no Chrome dedicado |
+| Envio incerto | WhatsApp Web não confirmou o envio | Verificar no grupo manualmente; usar `--retry-failed` somente em status FAILED |
+| Bot para com erro | Erro de autenticação ou configuração crítica | Ver mensagem no terminal; corrigir e reiniciar |
+
+---
+
+## 9. Segurança
+
+- A porta `9222` permite controlar a sessão do Chrome. O launcher vincula-a a `127.0.0.1`.
+- **Nunca altere para `0.0.0.0`** nem exponha essa porta no firewall/roteador.
+- Não compartilhe o arquivo `.env` nem as pastas de sessão do Chrome.
+- O painel não expõe credenciais no frontend.
+
+Para mais detalhes:
+- Banco de dados: [`backend/DATABASE.md`](./backend/DATABASE.md)
+- WhatsApp: [`backend/WHATSAPP.md`](./backend/WHATSAPP.md)

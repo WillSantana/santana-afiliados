@@ -1,224 +1,93 @@
-# Santana Afiliados Bot • Plataforma de Inteligência Comercial e Automação
+# Santana Afiliados
 
-Documento Mestre e Especificação Consolidada para Produção (Versão 1.0).
+Bot local de afiliados para o WhatsApp. Monitora grupos autorizados, captura links do Mercado Livre, gera links de afiliado e republica as ofertas nos grupos de destino — tudo rodando na sua máquina.
 
----
-
-## 📌 Visão Geral
-
-O **Santana Afiliados Bot** é uma plataforma desenvolvida para automatizar a prospecção de ofertas, triagem e pontuação de oportunidades no programa oficial de afiliados do **Mercado Livre**, preparando postagens promocionais padronizadas para divulgação via **WhatsApp**.
+**O bot não pesquisa produtos no Mercado Livre.** Ele parte de links compartilhados nos grupos de origem e os converte em links de afiliado.
 
 ---
 
-## 📚 Documentações Específicas do Projeto
-
-Consulte os manuais detalhados em cada pasta:
-
-* 📘 **[Manual de Usabilidade do Sistema (Passo a Passo)](./frontend/USABILIDADE.md):** Guia detalhado de uso, desde a busca no Mercado Livre, triagem por Score, vinculação de link de afiliado até a postagem no WhatsApp.
-* 📱 **[Guia de Integração com WhatsApp (Evolution API & Z-API)](./backend/WHATSAPP.md):** Passo a passo para subir o gateway Docker, ler QR Code, obter o ID do grupo (@g.us), modo simulação e disparos em 1 clique.
-* 🗄️ **[Guia do Banco de Dados (PostgreSQL & SQLite)](./backend/DATABASE.md):** Como instalar, iniciar e manter o PostgreSQL no Windows, Linux, Docker e modo fallback SQLite.
-* 🚀 **[Como Rodar o Backend (Windows & Linux)](./backend/README.md):** Instalação de dependências, ambiente virtual `venv`, variáveis de ambiente e execução da API Django.
-* 💻 **[Como Rodar o Frontend (Windows & Linux)](./frontend/README.md):** Instalação do Node.js, Vite em modo desenvolvimento e build de produção com Nginx.
-
----
-
-### Pilares Fundamentais:
-1. **Modelo de Negócio Enxuto:** Sem estoque, sem logística e sem manipulação de pagamentos (responsabilidades exclusivas dos vendedores e do Mercado Livre). Monetização puramente por comissão sobre vendas atribuídas.
-2. **Aprovação Humana Obrigatória (*Human-in-the-Loop*):** O robô coleta e pontua ofertas automaticamente, mantendo status `pending` até que o administrador aprove manualmente.
-3. **Segurança de Links:** Manutenção estrita da separação entre o link original (`product_url`) e o link rastreado (`affiliate_url`).
-4. **Conformidade Legal e Transparência:** Todas as publicações incluem disclaimer mandatório de transparência publicitária e preços verificados.
-
----
-
-## 🏗️ Arquitetura do Sistema
+## Fluxo principal
 
 ```
-santana-afiliados-bot/
-├── backend/
-│   ├── config/                     # Configurações Django, URLs, Celery, JWT
-│   │   ├── settings.py
-│   │   ├── urls.py
-│   │   ├── views.py
-│   │   ├── celery.py
-│   │   ├── asgi.py
-│   │   └── wsgi.py
-│   ├── apps/
-│   │   ├── catalog/                # Modelo ProductOffer, filtros e aprovação
-│   │   ├── integrations/
-│   │   │   └── mercadolivre/       # API Mercado Livre, busca e ingestão
-│   │   ├── affiliates/             # Gestão de links oficiais e auditoria
-│   │   ├── campaigns/              # Campanhas temáticas e sazonais
-│   │   ├── publications/           # Gerador de mensagens WhatsApp e histórico
-│   │   └── analytics/              # Métricas, conversão e comparação de metas
-│   ├── manage.py
-│   ├── requirements.txt
-│   └── Dockerfile
-├── frontend/
-│   ├── src/
-│   │   ├── components/             # Cards, modais, badges e KPIs
-│   │   ├── pages/                  # Catálogo, Publicações, Analytics, Campanhas
-│   │   ├── services/               # Cliente HTTP da API REST
-│   │   ├── hooks/                  # Custom hooks para catálogo e produtos
-│   │   ├── layouts/                # Layout principal e navegação
-│   │   ├── App.jsx
-│   │   ├── main.jsx
-│   │   └── index.css
-│   ├── package.json
-│   ├── vite.config.js
-│   ├── index.html
-│   ├── Dockerfile
-│   └── nginx.conf
-├── docker/
-│   └── docker-compose.yml          # PostgreSQL 16, Redis, Backend, Celery, Frontend
-├── .env.example
-├── .env
-├── .gitignore
-└── README.md
+WhatsApp (grupo de origem)
+  → Captura do link (meli.la ou mercadolivre.com.br)
+  → Identificação do produto
+  → Geração do link de afiliado (ML Link Builder, conta autenticada)
+  → Validação do link
+  → Publicação nos grupos de destino autorizados
+  → Registro individual por grupo no painel
 ```
 
 ---
 
-## 🛠️ Stack Tecnológica
+## Componentes
 
-| Camada | Tecnologia |
-|---|---|
-| **Sistema Operacional** | Ubuntu / Windows Server |
-| **Linguagem Backend** | Python 3.12 |
-| **Framework Backend** | Django 5.2 + Django REST Framework |
-| **Autenticação** | SimpleJWT |
-| **Banco de Dados** | PostgreSQL 16 (ou SQLite em modo fallback local) |
-| **Mensageria & Broker** | Redis 7 |
-| **Processamento Assíncrono**| Celery 5.3+ |
-| **Frontend** | React 18 + Vite |
-| **Servidor Web Frontend** | Nginx (Produção) |
-| **Containers** | Docker & Docker Compose |
+| Pasta / Arquivo | Descrição |
+|-----------------|-----------|
+| `backend/` | API Django, fila de ofertas, automação via Selenium |
+| `frontend/` | Painel web com Dashboard, Ofertas, Links de Afiliados, Publicações |
+| `iniciar_chrome_whatsapp.bat` | Abre o Chrome em perfil dedicado na porta 9222 |
+| `iniciar_postgres.bat` | Inicia o PostgreSQL local |
+| `backend/DATABASE.md` | Configuração do PostgreSQL |
+| `backend/WHATSAPP.md` | Configuração e operação do monitor |
+| `USAGE.md` | Guia completo de uso e solução de problemas |
 
 ---
 
-## 🚀 Como Executar o Projeto
+## Início rápido
 
-### Opção 1: Inicialização Completa com Docker Compose (Recomendado)
+Veja o passo a passo completo em **[USAGE.md](./USAGE.md)**.
 
-Certifique-se de ter o Docker e Docker Compose instalados e execute:
+```powershell
+# 1. Iniciar PostgreSQL
+.\iniciar_postgres.bat
 
-```bash
-cd docker
-docker compose up --build
-```
+# 2. Backend (terminal 1)
+Set-Location "C:\projetos wilson\apivendas\backend"
+.\venv\Scripts\python.exe manage.py migrate
+.\venv\Scripts\python.exe manage.py runserver
 
-O ambiente subirá os seguintes serviços:
-* **Frontend React:** `http://localhost:5173`
-* **API Backend Django:** `http://localhost:8000/api/`
-* **Painel Administrativo:** `http://localhost:8000/admin/`
-* **Banco PostgreSQL:** porta `5432`
-* **Redis Broker:** porta `6379`
-* **Worker Celery:** processamento de buscas em background
-
----
-
-### Opção 2: Execução Manual / Desenvolvimento Local
-
-#### 1. Configurar o Backend (Python 3.12)
-
-```bash
-# Acesse o diretório do backend
-cd backend
-
-# Crie e ative o ambiente virtual
-python -m venv venv
-# No Windows:
-.\venv\Scripts\activate
-# No Linux:
-source venv/bin/activate
-
-# Instale as dependências
-pip install -r requirements.txt
-
-# Execute as migrações do banco de dados
-python manage.py makemigrations
-python manage.py migrate
-
-# (Opcional) Crie o superusuário administrador
-python manage.py createsuperuser
-
-# Inicie o servidor Django
-python manage.py runserver 0.0.0.0:8000
-```
-
-#### 2. Configurar o Frontend (React + Vite)
-
-```bash
-# Em outro terminal, acesse o diretório do frontend
-cd frontend
-
-# Instale os pacotes npm
-npm install
-
-# Inicie o servidor de desenvolvimento
+# 3. Frontend (terminal 2)
+Set-Location "C:\projetos wilson\apivendas\frontend"
 npm run dev
+
+# 4. Chrome dedicado
+.\iniciar_chrome_whatsapp.bat
+# → Faça login no WhatsApp Web e no Mercado Livre
+
+# 5. Monitor (terminal 3)
+Set-Location "C:\projetos wilson\apivendas\backend"
+.\venv\Scripts\python.exe manage.py monitor_whatsapp_offers --send
 ```
 
-Acesse o frontend em `http://localhost:5173`.
+Acesse o painel em `http://localhost:5173`.
 
 ---
 
-## 📡 Endpoints REST Disponíveis (Seção 3.11)
+## Links capturados
 
-| Método | Endpoint | Finalidade |
-|---|---|---|
-| `GET` | `/api/health/` | Verificar funcionamento operacional |
-| `GET` | `/api/products/` | Listar catálogo com filtros (categoria, status, score) |
-| `POST` | `/api/products/` | Cadastrar anúncio manualmente |
-| `GET` | `/api/products/{id}/` | Detalhes de um produto específico |
-| `PATCH` | `/api/products/{id}/` | Atualizar dados do produto |
-| `POST` | `/api/products/{id}/approve/` | Aprovar oferta (administrador) |
-| `POST` | `/api/products/{id}/reject/` | Rejeitar oferta (com justificativa) |
-| `POST` | `/api/products/{id}/affiliate-link/` | Associar URL de afiliado oficial |
-| `POST` | `/api/search/run/` | Executar busca e ingestão na API do Mercado Livre |
-| `GET` | `/api/campaigns/` | Listar campanhas ativas |
-| `GET` | `/api/publications/` | Listar publicações e histórico |
-| `POST` | `/api/publications/generate/` | Gerar texto promocional formatado para WhatsApp |
-| `POST` | `/api/publications/{id}/publish/` | Disparar foto + legenda no WhatsApp (Evolution / Z-API) |
-| `GET` | `/api/publications/whatsapp-config/` | Consultar status, tipo de gateway e grupo ativo |
-| `POST` | `/api/publications/test-whatsapp/` | Disparar ping de teste no grupo de WhatsApp |
-| `POST` | `/api/publications/dispatch-next/` | Publicar automaticamente a próxima oferta na fila |
-| `GET` | `/api/analytics/` | Consultar KPIs, conversão e comparativo com metas |
+O bot aceita:
+- `https://meli.la/...` (links curtos do Mercado Livre)
+- `https://www.mercadolivre.com.br/...` (links tradicionais)
+- `https://mercadolivre.com/...`
 
 ---
 
-## 📊 Regras de Pontuação (Score de Oportunidade)
+## Painel administrativo
 
-O cálculo de oportunidade varia de **0 a 100 pontos**:
-* **Preço dentro do orçamento preferencial (até R$ 200):** até 20 pontos
-* **Reputação do vendedor (verde/ouro/platina):** 20 pontos
-* **Produto novo e anúncio ativo:** 15 pontos
-* **Competitividade de preço (desconto real verificado):** até 20 pontos
-* **Comissão/link cadastrado e confirmado:** 15 pontos
-* **Atratividade comercial e consistência do anúncio:** 10 pontos
-
-Faixas de classificação:
-* `85 - 100`: **Excelente**
-* `70 - 84`: **Boa**
-* `50 - 69`: **Moderada**
-* `0 - 49`: **Baixa prioridade**
+| Aba | Conteúdo |
+|-----|---------|
+| **Dashboard** | Status do bot e conexões; métricas; grupos; atividade recente |
+| **Ofertas Encontradas** | Ofertas capturadas com texto original, preço, status e link afiliado |
+| **Links de Afiliados** | Todos os links gerados com link original e link afiliado |
+| **Publicações por Grupo** | Envios individuais por grupo de destino com status e erros |
+| **Catálogo** | Produtos indexados |
 
 ---
 
-## 📱 Modelo de Mensagem Promocional para WhatsApp
+## Segurança
 
-```
-■ OFERTA DO DIA!
-■ [NOME DO PRODUTO]
-
-[DESCRIÇÃO DO BENEFÍCIO / CATEGORIA]
-
-■ Preço: R$ XX,XX
-■ Consulte as condições de entrega.
-
-■ Confira a oferta:
-[LINK DE AFILIADO OFICIAL]
-
-Publicidade: este é um link de afiliado e posso receber comissão se você comprar.
-```
-#   s a n t a n a - a f i l i a d o s - f r o n t e n d  
- 
+- Credenciais ficam apenas no `.env` (nunca no frontend).
+- A porta `9222` fica vinculada a `127.0.0.1` pelo launcher.
+- O bot nunca publica uma oferta sem um link de afiliado válido.
+- Nunca compartilhe o `.env` nem exponha a porta `9222` na rede.
