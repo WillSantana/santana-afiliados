@@ -9,10 +9,12 @@ from apps.publications.affiliate_watcher import (
     AffiliateAutomationError,
     acquire_process_lock,
     close_automation_tab,
+    current_publish_window_status,
     daily_publication_count,
     disconnect_automation_browser,
     discover_all_whatsapp_groups,
     open_automation_browser,
+    parse_publish_windows,
     process_offer,
     prune_old_offer_records,
     mark_stale_processing_as_uncertain,
@@ -225,8 +227,14 @@ class Command(BaseCommand):
                 )
             )
             affiliate_tab = None
+            publish_windows = parse_publish_windows()
             if options['send']:
                 self.stdout.write('Envio automático ativado via WhatsApp Web/Selenium.')
+                if publish_windows:
+                    summary = ', '.join(
+                        f'{h:02d}:{m:02d} ({lim})' for h, m, lim in publish_windows
+                    )
+                    self.stdout.write(f'Janelas de publicação configuradas: {summary}.')
             elif options['prepare_only']:
                 self.stdout.write(
                     'Modo de preparação: o produto e o link afiliado serão validados; '
@@ -257,6 +265,7 @@ class Command(BaseCommand):
                     'Já existe uma oferta pendente; usando a leitura inicial para validar as origens.'
                 )
 
+            last_window_notice = ''
             while True:
                 if all_groups_mode:
                     current_sources = source_groups
@@ -282,8 +291,18 @@ class Command(BaseCommand):
                     processed = 0
                     while not options['once'] or processed == 0:
                         if options['send'] and daily_publication_count() >= daily_limit:
-                            self.stdout.write('Teto diário alcançado; links novos ficam na fila.')
+                            if last_window_notice != 'daily_limit':
+                                self.stdout.write('Teto diário alcançado; links novos ficam na fila.')
+                                last_window_notice = 'daily_limit'
                             break
+                        if options['send'] and not options['once']:
+                            window_status = current_publish_window_status()
+                            if not window_status['can_publish']:
+                                if last_window_notice != window_status['reason']:
+                                    self.stdout.write(window_status['reason'])
+                                    last_window_notice = window_status['reason']
+                                break
+                            last_window_notice = ''
                         if all_groups_mode:
                             sources_to_query = source_groups
                         else:

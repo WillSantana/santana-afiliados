@@ -1597,6 +1597,114 @@ def daily_publication_count():
         published_at__date=today,
     ).count()
 
+
+def parse_publish_windows(raw_windows=None):
+    """
+    Interpreta janelas de envio no formato '08:00=20,12:30=20,15:30=20,19:30=20,21:00=20'.
+    Retorna lista ordenada de tuplas (hora, minuto, limite).
+    """
+    if raw_windows is None:
+        raw_windows = getattr(settings, 'AFFILIATE_BOT_PUBLISH_WINDOWS', '')
+    text = (raw_windows or '').strip()
+    if not text:
+        return []
+    windows = []
+    for chunk in text.split(','):
+        part = chunk.strip()
+        if not part or '=' not in part:
+            continue
+        time_part, limit_part = part.split('=', 1)
+        time_bits = time_part.strip().split(':')
+        if len(time_bits) != 2:
+            continue
+        try:
+            hour = int(time_bits[0])
+            minute = int(time_bits[1])
+            limit = int(limit_part.strip())
+        except ValueError:
+            continue
+        if 0 <= hour <= 23 and 0 <= minute <= 59 and limit > 0:
+            windows.append((hour, minute, limit))
+    windows.sort(key=lambda item: (item[0], item[1]))
+    return windows
+
+
+def current_publish_window_status(now=None, raw_windows=None):
+    """
+    Verifica se o horário atual está dentro de uma janela de envio ativa
+    e se a cota dessa janela ainda não foi atingida.
+    """
+    windows = parse_publish_windows(raw_windows)
+    if not windows:
+        return {
+            'enabled': False,
+            'can_publish': True,
+            'window_label': None,
+            'window_sent': 0,
+            'window_limit': None,
+            'next_window_label': None,
+            'reason': '',
+        }
+
+    local_now = timezone.localtime(now or timezone.now())
+    active_index = None
+    for idx, (hour, minute, _limit) in enumerate(windows):
+        start_dt = local_now.replace(hour=hour, minute=minute, second=0, microsecond=0)
+        if local_now >= start_dt:
+            active_index = idx
+
+    if active_index is None:
+        first_h, first_m, _ = windows[0]
+        next_label = f'{first_h:02d}:{first_m:02d}'
+        return {
+            'enabled': True,
+            'can_publish': False,
+            'window_label': None,
+            'window_sent': 0,
+            'window_limit': 0,
+            'next_window_label': next_label,
+            'reason': f'Fora da janela de publicação; próxima janela às {next_label}.',
+        }
+
+    hour, minute, limit = windows[active_index]
+    window_label = f'{hour:02d}:{minute:02d}'
+    window_start = local_now.replace(hour=hour, minute=minute, second=0, microsecond=0)
+    if active_index + 1 < len(windows):
+        next_h, next_m, _ = windows[active_index + 1]
+        window_end = local_now.replace(hour=next_h, minute=next_m, second=0, microsecond=0)
+        next_label = f'{next_h:02d}:{next_m:02d}'
+    else:
+        window_end = (window_start + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+        first_h, first_m, _ = windows[0]
+        next_label = f'amanhã às {first_h:02d}:{first_m:02d}'
+
+    window_sent = IncomingAffiliateOffer.objects.filter(
+        status__in=(IncomingOfferStatus.PUBLISHED, IncomingOfferStatus.UNCERTAIN),
+        published_at__gte=window_start,
+        published_at__lt=window_end,
+    ).count()
+
+    if window_sent >= limit:
+        return {
+            'enabled': True,
+            'can_publish': False,
+            'window_label': window_label,
+            'window_sent': window_sent,
+            'window_limit': limit,
+            'next_window_label': next_label,
+            'reason': f'Janela das {window_label} atingiu o limite ({window_sent}/{limit}); próxima janela: {next_label}.',
+        }
+
+    return {
+        'enabled': True,
+        'can_publish': True,
+        'window_label': window_label,
+        'window_sent': window_sent,
+        'window_limit': limit,
+        'next_window_label': next_label,
+        'reason': '',
+    }
+
 def wait_for_publish_window():
     last_publication = IncomingAffiliateOffer.objects.filter(
         status__in=(IncomingOfferStatus.PUBLISHED, IncomingOfferStatus.UNCERTAIN),
