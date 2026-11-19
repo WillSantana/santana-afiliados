@@ -6,7 +6,7 @@ import time
 import unicodedata
 from datetime import timedelta
 from pathlib import Path
-from urllib.parse import quote, urlsplit, urlunsplit
+from urllib.parse import parse_qs, quote, unquote, urlsplit, urlunsplit
 
 from django.conf import settings
 from django.db import transaction
@@ -212,7 +212,10 @@ def close_automation_tab(browser, tab_handle=None, fallback_tab=None, handles_be
 def _normalize_group_name(name):
     if not name:
         return ''
-    cleaned = re.sub(r'[\u200e\u200f\u202a-\u202e]+', '', name)
+    cleaned = re.sub(r'[\u200e\u200f\u202a-\u202e\ufe0f]+', '', name)
+    # Remove emojis/símbolos fora do BMP (no cabeçalho do WhatsApp Web eles são
+    # renderizados como <img> e não aparecem no innerText).
+    cleaned = ''.join(ch for ch in cleaned if ord(ch) <= 0xFFFF)
     cleaned = re.sub(r'\s+', ' ', cleaned).strip().lower()
     return cleaned
 
@@ -253,9 +256,13 @@ def open_whatsapp_group(browser, group_name, timeout=30):
         try:
             browser.execute_script("""
                 const el = arguments[0];
-                el.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, view: window }));
-                el.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true, view: window }));
-                el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
+                const target = el.closest('[role="row"], [role="listitem"], [role="gridcell"]') || el;
+                target.scrollIntoView({ block: 'center' });
+                for (const node of [el, target]) {
+                    node.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, view: window }));
+                    node.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true, view: window }));
+                    node.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
+                }
             """, element)
         except Exception:
             try:
@@ -264,14 +271,14 @@ def open_whatsapp_group(browser, group_name, timeout=30):
                 browser.execute_script('arguments[0].click()', element)
 
         try:
-            WebDriverWait(browser, 8).until(
+            WebDriverWait(browser, 6).until(
                 lambda driver: _is_group_match(_current_group_name(driver), group_name)
             )
         except TimeoutException:
             if search is not None:
                 try:
                     search.send_keys(Keys.ENTER)
-                    WebDriverWait(browser, 5).until(
+                    WebDriverWait(browser, 4).until(
                         lambda driver: _is_group_match(_current_group_name(driver), group_name)
                     )
                 except Exception:
@@ -292,68 +299,104 @@ def open_whatsapp_group(browser, group_name, timeout=30):
         except WebDriverException:
             continue
 
-    # 2. Se não estiver visível diretamente, usar a busca do WhatsApp
+    # 2. Rolar a lista lateral (#pane-side) antes de usar a busca — é mais rápido
+    # e não depende do filtro reativo da caixa de busca em segundo plano.
+    pane = None
+    for sel in ('#pane-side', '[data-testid="chat-list"]'):
+        found = browser.find_elements(By.CSS_SELECTOR, sel)
+        if found:
+            pane = found[0]
+            break
+
+    if pane is not None:
+        try:
+            browser.execute_script('arguments[0].scrollTop = 0', pane)
+            time.sleep(0.2)
+        except WebDriverException:
+            pass
+        last_scroll = -1
+        for _ in range(30):
+            for element in browser.find_elements(By.CSS_SELECTOR, '#pane-side span[title]'):
+                try:
+                    title = element.get_attribute('title') or ''
+                    if _is_group_match(title, group_name):
+                        click_group_result(element)
+                        if _is_group_match(_current_group_name(browser), group_name):
+                            return
+                except WebDriverException:
+                    continue
+            try:
+                current_scroll = browser.execute_script(
+                    'const p = arguments[0]; p.scrollTop += 600; return p.scrollTop;',
+                    pane,
+                )
+            except WebDriverException:
+                break
+            if current_scroll == last_scroll:
+                break
+            last_scroll = current_scroll
+            time.sleep(0.2)
+
+    # 3. Fallback: usar a busca do WhatsApp caso o grupo esteja muito abaixo na lista
     search_selectors = (
-        '#side div[contenteditable="true"]',
-        '#side [role="searchbox"]',
+        '#side input[role="textbox"]',
         '[aria-label="Pesquisar ou começar uma nova conversa"]',
         '[aria-label="Search or start new chat"]',
+        '#side [role="searchbox"]',
+        '#side div[contenteditable="true"]',
         '[aria-label="Pesquisar"]',
         '[aria-label="Search"]',
     )
-    search = None
-    for selector in search_selectors:
-        for element in browser.find_elements(By.CSS_SELECTOR, selector):
-            if element.is_displayed() and element.is_enabled():
-                search = element
-                break
-        if search:
-            break
-    if not search:
-        raise AffiliateAutomationError(
-            'Não encontrei a busca de conversas do WhatsApp Web. A interface pode ter mudado.'
-        )
 
-    # Limpar qualquer busca anterior antes de digitar
+    def find_search_input():
+        for selector in search_selectors:
+            for element in browser.find_elements(By.CSS_SELECTOR, selector):
+                try:
+                    if element.is_displayed() and element.is_enabled():
+                        return element
+                except WebDriverException:
+                    continue
+        return None
+
+    # Limpa qualquer busca anterior antes de localizar o campo
     try:
         browser.execute_script("""
             document.querySelectorAll('[data-animate-modal-popup],[data-testid="intro-md-beta-logo-dark"]').forEach(el => el.style.display='none');
             const closeBtn = document.querySelector('button[aria-label="End icon button"], #side button[aria-label="Cancelar pesquisa"], #side [data-icon="x-alt"]');
             if (closeBtn) closeBtn.click();
-            const inputs = document.querySelectorAll('#side input[role="textbox"], #side [role="searchbox"], #side div[contenteditable="true"]');
-            inputs.forEach(i => {
-                i.value = '';
-                i.dispatchEvent(new Event('input', { bubbles: true }));
-                i.dispatchEvent(new Event('change', { bubbles: true }));
-            });
         """)
         time.sleep(0.2)
     except Exception:
         pass
 
+    search = find_search_input()
+    if not search:
+        raise AffiliateAutomationError(
+            'Não encontrei a busca de conversas do WhatsApp Web. A interface pode ter mudado.'
+        )
+
     # Focar e digitar o nome do grupo na busca
     try:
-        browser.execute_script("""
-            arguments[0].focus();
-            arguments[0].dispatchEvent(new MouseEvent('mousedown', {bubbles: true, cancelable: true, view: window}));
-            arguments[0].dispatchEvent(new MouseEvent('mouseup', {bubbles: true, cancelable: true, view: window}));
-            arguments[0].dispatchEvent(new MouseEvent('click', {bubbles: true, cancelable: true, view: window}));
-        """, search)
+        search.click()
     except Exception:
         try:
-            search.click()
+            browser.execute_script("arguments[0].focus(); arguments[0].click();", search)
         except Exception:
             pass
 
-    time.sleep(0.3)
+    # Remove caracteres fora do plano BMP apenas na digitação da busca do ChromeDriver
+    search_query = ''.join(ch for ch in group_name if ord(ch) <= 0xFFFF).strip() or group_name
+    search_query = re.sub(r'\s+', ' ', search_query)
+
+    time.sleep(0.2)
     try:
         search.send_keys(Keys.CONTROL, 'a')
         search.send_keys(Keys.BACKSPACE)
-        search.send_keys(group_name)
+        search.send_keys(search_query)
     except Exception:
-        browser.execute_script("arguments[0].focus(); arguments[0].value = '';", search)
+        browser.execute_script("arguments[0].focus();", search)
         from selenium.webdriver.common.action_chains import ActionChains
-        ActionChains(browser).send_keys(group_name).perform()
+        ActionChains(browser).key_down(Keys.CONTROL).send_keys('a').key_up(Keys.CONTROL).send_keys(Keys.BACKSPACE).send_keys(search_query).perform()
 
     def exact_result(driver):
         for element in driver.find_elements(By.CSS_SELECTOR, '#pane-side span[title], #side span[title]'):
@@ -366,22 +409,30 @@ def open_whatsapp_group(browser, group_name, timeout=30):
         return False
 
     try:
-        result = WebDriverWait(browser, timeout).until(exact_result)
+        result = WebDriverWait(browser, min(timeout, 8)).until(exact_result)
         click_group_result(result, search)
-        # Limpa a busca para restaurar a lista lateral do WhatsApp
         try:
+            current_search = find_search_input()
+            if current_search:
+                current_search.send_keys(Keys.CONTROL, 'a')
+                current_search.send_keys(Keys.BACKSPACE)
+                current_search.send_keys(Keys.ESCAPE)
             browser.execute_script("""
-                const closeBtn = document.querySelector('button[aria-label="End icon button"], #side button[aria-label="Cancelar pesquisa"]');
+                const closeBtn = document.querySelector('button[aria-label="End icon button"], #side button[aria-label="Cancelar pesquisa"], #side [data-icon="x-alt"]');
                 if (closeBtn) closeBtn.click();
             """)
         except Exception:
             pass
-    except WebDriverException as exc:
-        selected_group = _current_group_name(browser) or 'nenhum grupo identificado'
-        raise AffiliateAutomationError(
-            f'Não consegui abrir e confirmar o grupo de origem “{group_name}”. '
-            f'Grupo atual no WhatsApp: “{selected_group}”.'
-        ) from exc
+        if _is_group_match(_current_group_name(browser), group_name):
+            return
+    except WebDriverException:
+        pass
+
+    selected_group = _current_group_name(browser) or 'nenhum grupo identificado'
+    raise AffiliateAutomationError(
+        f'Não consegui abrir e confirmar o grupo de origem “{group_name}”. '
+        f'Grupo atual no WhatsApp: “{selected_group}”.'
+    )
 
 
 def discover_all_whatsapp_groups(browser, scroll_rounds=6, pause=1.5):
@@ -622,13 +673,27 @@ def _first_element(browser, selectors):
 
 
 def _element_text(browser, selectors):
-    element = _first_element(browser, selectors)
-    return (element.text or '').strip() if element else ''
+    from selenium.common.exceptions import StaleElementReferenceException
+
+    for _ in range(3):
+        try:
+            element = _first_element(browser, selectors)
+            return (element.text or '').strip() if element else ''
+        except StaleElementReferenceException:
+            time.sleep(0.2)
+    return ''
 
 
 def _element_attribute(browser, selectors, attribute):
-    element = _first_element(browser, selectors)
-    return (element.get_attribute(attribute) or '').strip() if element else ''
+    from selenium.common.exceptions import StaleElementReferenceException
+
+    for _ in range(3):
+        try:
+            element = _first_element(browser, selectors)
+            return (element.get_attribute(attribute) or '').strip() if element else ''
+        except StaleElementReferenceException:
+            time.sleep(0.2)
+    return ''
 
 
 def _product_title_matches_message(title, message):
@@ -665,6 +730,23 @@ def resolve_product_page(browser, url, expected_text=''):
     if is_social_page:
         # Perfis sociais exibem recomenda??es al?m da oferta recebida. Use o
         # CTA da oferta principal, nunca qualquer link MLB encontrado na p?gina.
+        def _unwrap_marketplace_href(raw_href):
+            candidate = (raw_href or '').strip()
+            if not candidate:
+                return ''
+            if is_marketplace_url(candidate):
+                return candidate
+            try:
+                qs = parse_qs(urlsplit(candidate).query)
+                for key in ('url', 'fallback', 'redirect', 'u'):
+                    for val in qs.get(key, ()):
+                        decoded = unquote(val).strip()
+                        if is_marketplace_url(decoded):
+                            return decoded
+            except Exception:
+                pass
+            return ''
+
         def primary_offer_links(driver):
             # Read rendered text in-page: Selenium's .text is intermittently
             # empty on Mercado Livre's hydrated React anchors even when the
@@ -676,19 +758,25 @@ def resolve_product_page(browser, url, expected_text=''):
                 }));
             """) or []
             links = []
+            featured_links = []
             for anchor in anchors:
                 label = ' '.join((anchor.get('label') or '').split()).casefold()
-                if 'ir para produto' not in label:
+                raw_href = (anchor.get('href') or '').strip()
+                href = _unwrap_marketplace_href(raw_href)
+                if not href:
                     continue
-                href = (anchor.get('href') or '').strip()
                 item_id = extract_item_id(href)
-                if not item_id or not is_marketplace_url(href):
+                if not item_id:
                     continue
                 parts = urlsplit(href)
                 product_url = urlunsplit((parts.scheme, parts.netloc, parts.path, '', ''))
-                if ProductOffer.is_valid_listing_permalink(product_url, item_id):
-                    links.append(href)
-            return list(dict.fromkeys(links))
+                if not ProductOffer.is_valid_listing_permalink(product_url, item_id):
+                    continue
+                if 'ir para produto' in label or 'ir para o produto' in label:
+                    links.append(product_url)
+                elif 'card-featured' in raw_href:
+                    featured_links.append(product_url)
+            return list(dict.fromkeys(links or featured_links))
 
         try:
             links = WebDriverWait(browser, 30, poll_frequency=0.5).until(
@@ -698,11 +786,11 @@ def resolve_product_page(browser, url, expected_text=''):
             links = []
         if not links:
             raise AffiliateAutomationError(
-                'A p?gina social n?o mostrou o bot?o ?Ir para produto? da oferta principal.'
+                'A página social não mostrou o botão “Ir para produto” da oferta principal.'
             )
         if not expected_text.strip():
             raise AffiliateAutomationError(
-                'A oferta veio de uma p?gina social sem mensagem para confirmar o produto.'
+                'A oferta veio de uma página social sem mensagem para confirmar o produto.'
             )
 
         matched = False
@@ -1122,7 +1210,7 @@ def _publish_offer_to_group(browser, whatsapp_tab, target_group, message, affili
 
     browser.switch_to.window(whatsapp_tab)
     open_whatsapp_group(browser, target_group)
-    if _current_group_name(browser) != target_group:
+    if not _is_group_match(_current_group_name(browser), target_group):
         raise AffiliateAutomationError(f'Grupo de destino “{target_group}” não pôde ser confirmado no WhatsApp.')
 
     composer = WebDriverWait(browser, 20).until(_message_composer)
@@ -1153,7 +1241,7 @@ def _publish_offer_to_group(browser, whatsapp_tab, target_group, message, affili
     # Aguarda 2 segundos para o WhatsApp renderizar o preview da mensagem antes de enviar
     time.sleep(2)
 
-    if _current_group_name(browser) != target_group:
+    if not _is_group_match(_current_group_name(browser), target_group):
         raise AffiliateAutomationError(f'O grupo ativo mudou antes do envio; publicação cancelada.')
 
     button = WebDriverWait(browser, 15).until(_send_button)
@@ -1248,25 +1336,28 @@ def publish_offer_in_whatsapp(browser, whatsapp_tab, target_groups, message, aff
 
 
 def build_incoming_offer_message(details, coupon, affiliate_url):
-    price = f'{details["price"]:,.2f}'.replace(',', 'X').replace('.', ',').replace('X', '.')
+    price_val = float(details['price'])
+    price = f'{price_val:,.2f}'.replace(',', 'X').replace('.', ',').replace('X', '.')
     lines = [
-        '🔥 MELHOR OFERTA 🔥',
+        f'🔥 *{details["title"]}*',
         '',
-        f'🛍️ {details["title"]}',
+        'Oferta imperdível no Mercado Livre!',
+        'Toque no link abaixo para conferir e garantir a sua:',
+        '',
     ]
-    if details.get('original_price'):
-        original = f'{details["original_price"]:,.2f}'.replace(',', 'X').replace('.', ',').replace('X', '.')
-        lines.extend(('', f'De R$ {original}'))
-    lines.extend(('', f'🔥 Por R$ {price}'))
+    original_val = details.get('original_price')
+    if original_val and float(original_val) > price_val:
+        original_float = float(original_val)
+        original = f'{original_float:,.2f}'.replace(',', 'X').replace('.', ',').replace('X', '.')
+        discount_pct = round(((original_float - price_val) / original_float) * 100)
+        lines.append(f'✅ ~De R$ {original}~ → *Por R$ {price}*')
+        if discount_pct > 0:
+            lines.append(f'🔻 {discount_pct}% OFF')
+    else:
+        lines.append(f'✅ *Por R$ {price}*')
     if coupon:
-        lines.extend(('', f'🎟️ Cupom: {coupon}'))
-    lines.extend((
-        '',
-        f'👉 {affiliate_url}',
-        '',
-        'Confira preço, disponibilidade e condições no anúncio.',
-        'Este é um link de afiliado; posso receber comissão por compras realizadas.',
-    ))
+        lines.append(f'🎟️ Cupom: {coupon}')
+    lines.append(f'🛒 {affiliate_url}')
     return '\n'.join(lines)
 
 

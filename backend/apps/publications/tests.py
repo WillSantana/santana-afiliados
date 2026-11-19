@@ -67,11 +67,12 @@ class IncomingOfferParsingTests(SimpleTestCase):
             'https://meli.la/AbC123',
         )
 
-        self.assertIn('Fone Bluetooth', message)
-        self.assertIn('De R$ 199,90', message)
-        self.assertIn('Por R$ 129,90', message)
+        self.assertIn('🔥 *Fone Bluetooth*', message)
+        self.assertIn('Mercado Livre', message)
+        self.assertIn('~De R$ 199,90~ → *Por R$ 129,90*', message)
+        self.assertIn('35% OFF', message)
         self.assertIn('Cupom: OFERTA20', message)
-        self.assertIn('posso receber comissão', message)
+        self.assertIn('🛒 https://meli.la/AbC123', message)
 
     @override_settings(AFFILIATE_BOT_CHROME_DEBUGGER_ADDRESS='0.0.0.0:9222')
     def test_debugger_must_not_bind_to_network_interfaces(self):
