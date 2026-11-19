@@ -152,7 +152,7 @@ export default function AutomationPage() {
 
       {/* Resumo da Configuração */}
       <section style={{ background: 'white', borderRadius: 'var(--radius-md)', padding: '1.25rem', border: '1px solid var(--gray-200)', marginBottom: '1.5rem' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem', alignItems: 'center' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 210px), 1fr))', gap: '0.85rem', alignItems: 'center' }}>
           <GroupDropdown
             icon="📥"
             label="Origem Monitorada"

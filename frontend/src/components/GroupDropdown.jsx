@@ -74,16 +74,18 @@ export default function GroupDropdown({
           style={{
             display: 'flex',
             alignItems: 'center',
-            gap: '0.5rem',
-            fontSize: '0.82rem',
+            gap: '0.45rem',
+            fontSize: '0.8rem',
             fontWeight: 700,
             color: palette.text,
             textTransform: 'uppercase',
             letterSpacing: '0.02em',
+            minWidth: 0,
+            overflow: 'hidden',
           }}
         >
-          {icon ? <span>{icon}</span> : null}
-          <span>{label}</span>
+          {icon ? <span style={{ flexShrink: 0 }}>{icon}</span> : null}
+          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</span>
         </span>
         <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0 }}>
           <span

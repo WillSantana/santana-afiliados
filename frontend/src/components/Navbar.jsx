@@ -5,11 +5,11 @@ export default function Navbar({ activeTab, setActiveTab }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const tabs = [
-    { id: 'dashboard', label: 'Dashboard', icon: 'zap' },
-    { id: 'automation', label: 'Ofertas Encontradas', icon: 'automation' },
-    { id: 'affiliates', label: 'Links de Afiliados', icon: 'link' },
-    { id: 'publications', label: 'Publicações por Grupo', icon: 'whatsapp' },
-    { id: 'catalog', label: 'Catálogo', icon: 'catalog' },
+    { id: 'dashboard', label: 'Dashboard', shortLabel: 'Início', icon: 'zap' },
+    { id: 'automation', label: 'Ofertas Encontradas', shortLabel: 'Ofertas', icon: 'automation' },
+    { id: 'affiliates', label: 'Links de Afiliados', shortLabel: 'Afiliados', icon: 'link' },
+    { id: 'publications', label: 'Publicações por Grupo', shortLabel: 'Envios', icon: 'whatsapp' },
+    { id: 'catalog', label: 'Catálogo', shortLabel: 'Catálogo', icon: 'catalog' },
   ];
 
   const handleTabClick = (tabId) => {
@@ -90,6 +90,24 @@ export default function Navbar({ activeTab, setActiveTab }) {
           </nav>
         </div>
       )}
+
+      {/* Mobile Bottom Tab Bar */}
+      <nav className="mobile-bottom-nav" aria-label="Navegação mobile">
+        {tabs.map((tab) => {
+          const isActive = activeTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              className={`mobile-bottom-btn ${isActive ? 'active' : ''}`}
+              onClick={() => handleTabClick(tab.id)}
+            >
+              <Icon name={tab.icon} size={18} />
+              <span>{tab.shortLabel}</span>
+            </button>
+          );
+        })}
+      </nav>
     </header>
   );
 }

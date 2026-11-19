@@ -72,7 +72,7 @@ export default function DashboardPage({ onNavigateTab }) {
       )}
 
       {/* Status das Conexões e do Bot */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 240px), 1fr))', gap: '0.85rem', marginBottom: '1.25rem' }}>
         {/* Status do Monitor */}
         <div style={{ background: 'white', borderRadius: 'var(--radius-md)', padding: '1.25rem', border: '1px solid var(--gray-200)', display: 'flex', alignItems: 'center', gap: '1rem' }}>
           <div style={{
@@ -151,7 +151,7 @@ export default function DashboardPage({ onNavigateTab }) {
       </div>
 
       {/* Cards de Métricas Principais */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 155px), 1fr))', gap: '0.85rem', marginBottom: '1.25rem' }}>
         <div
           onClick={() => onNavigateTab && onNavigateTab('automation')}
           style={{ background: 'white', borderRadius: 'var(--radius-md)', padding: '1.25rem', border: '1px solid var(--gray-200)', cursor: 'pointer', transition: 'transform 0.15s' }}
@@ -213,7 +213,7 @@ export default function DashboardPage({ onNavigateTab }) {
             Clique para expandir a lista de grupos
           </span>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 260px), 1fr))', gap: '0.85rem' }}>
           <GroupDropdown
             icon="📥"
             label="Grupos de Origem (Monitorados)"
@@ -232,7 +232,7 @@ export default function DashboardPage({ onNavigateTab }) {
       </div>
 
       {/* Tabelas de Visão Rápida */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '1.5rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 340px), 1fr))', gap: '1.25rem' }}>
         {/* Últimos Envios por Grupo */}
         <div style={{ background: 'white', borderRadius: 'var(--radius-md)', padding: '1.25rem', border: '1px solid var(--gray-200)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.8rem' }}>
