@@ -1,15 +1,15 @@
 import React, { useState } from 'react';
 import MainLayout from './layouts/MainLayout';
+import DashboardPage from './pages/DashboardPage';
 import CatalogPage from './pages/CatalogPage';
 import AutomationPage from './pages/AutomationPage';
+import AffiliateLinksPage from './pages/AffiliateLinksPage';
 import PublicationsPage from './pages/PublicationsPage';
-import AnalyticsPage from './pages/AnalyticsPage';
-import CampaignsPage from './pages/CampaignsPage';
 import { ToastProvider } from './components/Toast';
 import { useProducts } from './hooks/useProducts';
 
 function MainApp() {
-  const [activeTab, setActiveTab] = useState('catalog');
+  const [activeTab, setActiveTab] = useState('dashboard');
   const {
     products,
     loading,
@@ -26,6 +26,16 @@ function MainApp() {
       activeTab={activeTab}
       setActiveTab={setActiveTab}
     >
+      {activeTab === 'dashboard' && (
+        <DashboardPage onNavigateTab={setActiveTab} />
+      )}
+
+      {activeTab === 'automation' && <AutomationPage />}
+
+      {activeTab === 'affiliates' && <AffiliateLinksPage />}
+
+      {activeTab === 'publications' && <PublicationsPage />}
+
       {activeTab === 'catalog' && (
         <CatalogPage
           products={products}
@@ -38,12 +48,6 @@ function MainApp() {
           onReload={reload}
         />
       )}
-
-      {activeTab === 'automation' && <AutomationPage />}
-      {activeTab === 'publications' && <PublicationsPage />}
-      {activeTab === 'analytics' && <AnalyticsPage />}
-      {activeTab === 'campaigns' && <CampaignsPage />}
-
     </MainLayout>
   );
 }

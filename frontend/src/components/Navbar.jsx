@@ -5,11 +5,11 @@ export default function Navbar({ activeTab, setActiveTab }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const tabs = [
-    { id: 'catalog', label: 'Ofertas recebidas', icon: 'catalog' },
-    { id: 'automation', label: 'Monitor WhatsApp', icon: 'automation' },
-    { id: 'publications', label: 'WhatsApp', icon: 'publications' },
-    { id: 'analytics', label: 'Métricas & Metas', icon: 'analytics' },
-    { id: 'campaigns', label: 'Campanhas', icon: 'campaigns' },
+    { id: 'dashboard', label: 'Dashboard', icon: 'zap' },
+    { id: 'automation', label: 'Ofertas Encontradas', icon: 'automation' },
+    { id: 'affiliates', label: 'Links de Afiliados', icon: 'link' },
+    { id: 'publications', label: 'Publicações por Grupo', icon: 'whatsapp' },
+    { id: 'catalog', label: 'Catálogo', icon: 'catalog' },
   ];
 
   const handleTabClick = (tabId) => {

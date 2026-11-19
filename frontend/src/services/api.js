@@ -83,6 +83,12 @@ export const api = {
     body: JSON.stringify({ group_id: groupId || undefined }),
   }),
   getIncomingOffers: () => request('/publications/incoming-offers/'),
+  getDashboard: () => request('/publications/dashboard/'),
+  getDeliveries: (params = {}) => {
+    const query = new URLSearchParams(params).toString();
+    return request(`/publications/deliveries/${query ? `?${query}` : ''}`);
+  },
+  getAffiliateLinks: () => request('/publications/affiliate-links/'),
 
   // Campanhas
   getCampaigns: () => request('/campaigns/'),

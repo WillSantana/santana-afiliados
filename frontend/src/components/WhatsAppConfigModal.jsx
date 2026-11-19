@@ -131,7 +131,7 @@ export default function WhatsAppConfigModal({
             <div>
               <h3>Grupos do WhatsApp</h3>
               <p className="modal-subtitle">
-                Cadastre as origens monitoradas e todos os destinos das ofertas.
+                Configure grupos como origem, destino ou ambos.
               </p>
             </div>
           </div>
@@ -157,7 +157,7 @@ export default function WhatsAppConfigModal({
               </button>
             </div>
             <p style={{ marginTop: 0, color: '#64748b', fontSize: '0.8rem' }}>
-              Use o nome exatamente como aparece no WhatsApp para as origens; o JID é opcional nelas e obrigatório nos destinos.
+              Use o nome exatamente como aparece no WhatsApp. O JID é obrigatório para destino isolado e opcional para grupos usados pelo monitor Selenium.
             </p>
             {hasChanges && (
               <p style={{ marginTop: 0, color: '#b45309', fontSize: '0.8rem' }}>
@@ -197,6 +197,7 @@ export default function WhatsAppConfigModal({
                   >
                     <option value="destination">Destino — receberá as ofertas</option>
                     <option value="source">Origem — grupo monitorado</option>
+                    <option value="both">Origem e destino</option>
                   </select>
                 </label>
                 <button type="submit" className="btn-primary" disabled={saving}>
@@ -254,6 +255,7 @@ export default function WhatsAppConfigModal({
                     >
                       <option value="source">Origem monitorada</option>
                       <option value="destination">Destino de publicação</option>
+                      <option value="both">Origem e destino</option>
                     </select>
                     {group.role === 'destination' && group.jid && !isActive && (
                       <button
