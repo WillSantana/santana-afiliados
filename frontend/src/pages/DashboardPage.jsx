@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { api } from '../services/api';
 import { Icon } from '../components/Icons';
+import GroupDropdown from '../components/GroupDropdown';
 
 export default function DashboardPage({ onNavigateTab }) {
   const [data, setData] = useState(null);
@@ -206,43 +207,27 @@ export default function DashboardPage({ onNavigateTab }) {
 
       {/* Grupos Monitorados e Destinos */}
       <div style={{ background: 'white', borderRadius: 'var(--radius-md)', padding: '1.25rem', border: '1px solid var(--gray-200)', marginBottom: '1.5rem' }}>
-        <h3 style={{ margin: '0 0 0.8rem 0', fontSize: '1rem', fontWeight: 700 }}>Grupos Autorizados do WhatsApp</h3>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.5rem' }}>
-          <div>
-            <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#1e40af', marginBottom: '0.4rem', textTransform: 'uppercase' }}>
-              📥 Grupos de Origem (Monitorados)
-            </div>
-            {groups.sources?.length ? (
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
-                {groups.sources.map((s, idx) => (
-                  <span key={idx} style={{ padding: '0.3rem 0.6rem', background: '#eff6ff', color: '#1e40af', borderRadius: '4px', fontSize: '0.8rem', fontWeight: 600 }}>
-                    {s}
-                  </span>
-                ))}
-              </div>
-            ) : (
-              <div style={{ color: 'var(--gray-400)', fontSize: '0.85rem' }}>Nenhum grupo de origem cadastrado</div>
-            )}
-          </div>
-
-          <div>
-            <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#15803d', marginBottom: '0.4rem', textTransform: 'uppercase' }}>
-              📤 Grupos de Destino (Recebem as Ofertas)
-            </div>
-            {groups.destinations?.length ? (
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
-                {groups.destinations.map((d, idx) => (
-                  <span key={idx} style={{ padding: '0.3rem 0.6rem', background: '#f0fdf4', color: '#15803d', borderRadius: '4px', fontSize: '0.8rem', fontWeight: 600 }}>
-                    {d}
-                  </span>
-                ))}
-              </div>
-            ) : (
-              <div style={{ color: '#15803d', fontSize: '0.85rem', fontStyle: 'italic' }}>
-                🤖 Modo automático — envia para todos os grupos do WhatsApp (use <code>--send-all-groups</code>)
-              </div>
-            )}
-          </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.85rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+          <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 700 }}>Grupos Autorizados do WhatsApp</h3>
+          <span style={{ fontSize: '0.78rem', color: 'var(--gray-500)' }}>
+            Clique para expandir a lista de grupos
+          </span>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1rem' }}>
+          <GroupDropdown
+            icon="📥"
+            label="Grupos de Origem (Monitorados)"
+            groups={groups.sources || []}
+            emptyText="Nenhum grupo de origem cadastrado"
+            accent="blue"
+          />
+          <GroupDropdown
+            icon="📤"
+            label="Grupos de Destino (Recebem Ofertas)"
+            groups={groups.destinations || []}
+            emptyText="Modo automático — envia para todos os grupos do WhatsApp"
+            accent="green"
+          />
         </div>
       </div>
 

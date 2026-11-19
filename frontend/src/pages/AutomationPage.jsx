@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { api } from '../services/api';
 import WhatsAppConfigModal from '../components/WhatsAppConfigModal';
+import GroupDropdown from '../components/GroupDropdown';
 import { Icon } from '../components/Icons';
 
 const statusLabels = {
@@ -151,19 +152,21 @@ export default function AutomationPage() {
 
       {/* Resumo da Configuração */}
       <section style={{ background: 'white', borderRadius: 'var(--radius-md)', padding: '1.25rem', border: '1px solid var(--gray-200)', marginBottom: '1.5rem' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
-          <div>
-            <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--gray-500)', textTransform: 'uppercase' }}>Origem Monitorada</div>
-            <div style={{ fontWeight: 700, color: '#1e40af', marginTop: '0.2rem' }}>
-              {data?.source_groups?.join(', ') || 'Nenhuma origem configurada'}
-            </div>
-          </div>
-          <div>
-            <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--gray-500)', textTransform: 'uppercase' }}>Destinos de Envio</div>
-            <div style={{ fontWeight: 700, color: '#15803d', marginTop: '0.2rem' }}>
-              {data?.target_groups?.join(', ') || 'Nenhum destino cadastrado'}
-            </div>
-          </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem', alignItems: 'center' }}>
+          <GroupDropdown
+            icon="📥"
+            label="Origem Monitorada"
+            groups={data?.source_groups || []}
+            emptyText="Nenhuma origem configurada"
+            accent="blue"
+          />
+          <GroupDropdown
+            icon="📤"
+            label="Destinos de Envio"
+            groups={data?.target_groups || []}
+            emptyText="Nenhum destino cadastrado"
+            accent="green"
+          />
           <div>
             <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--gray-500)', textTransform: 'uppercase' }}>Limite Diário</div>
             <div style={{ fontWeight: 700, color: 'var(--gray-800)', marginTop: '0.2rem' }}>

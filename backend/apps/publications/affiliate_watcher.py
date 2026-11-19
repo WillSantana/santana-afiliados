@@ -697,16 +697,32 @@ def _element_attribute(browser, selectors, attribute):
 
 
 def _product_title_matches_message(title, message):
+    stopwords = {
+        'de', 'do', 'da', 'dos', 'das', 'para', 'com', 'sem', 'por', 'em',
+        'no', 'na', 'nos', 'nas', 'ao', 'aos', 'um', 'uma', 'ou', 'que',
+        'off', 'oferta', 'ofertas', 'promocao', 'cupom', 'frete', 'gratis',
+        'mercado', 'livre', 'mercadolivre', 'https', 'http', 'meli', 'la',
+        'reais', 'rs', 'link', 'clique', 'confira', 'produto', 'novo',
+        'cor', 'preto', 'branco', 'azul', 'cinza', 'bivolt', 'un', 'und',
+    }
+
     def tokens(value):
         normalized = unicodedata.normalize('NFKD', (value or '').casefold())
         normalized = ''.join(char for char in normalized if not unicodedata.combining(char))
-        return {token for token in re.findall(r'[a-z0-9]+', normalized) if len(token) >= 2}
+        return {
+            token
+            for token in re.findall(r'[a-z0-9]+', normalized)
+            if len(token) >= 2 and token not in stopwords
+        }
 
     title_tokens = tokens(title)
     message_tokens = tokens(message)
-    if len(title_tokens) < 4 or not message_tokens:
+    if not title_tokens or not message_tokens:
         return False
-    return len(title_tokens & message_tokens) / len(title_tokens) >= 0.55
+    overlap = title_tokens & message_tokens
+    if len(overlap) >= 2:
+        return True
+    return len(overlap) / len(title_tokens) >= 0.35
 
 
 def resolve_product_page(browser, url, expected_text=''):
@@ -794,29 +810,38 @@ def resolve_product_page(browser, url, expected_text=''):
             )
 
         matched = False
+        last_candidate_title = ''
         for product_link in links:
             browser.get(product_link)
             try:
                 WebDriverWait(browser, 15).until(
-                    lambda driver: _element_text(
-                        driver, ('h1.ui-pdp-title', 'h1.andes-typography', 'h1')
-                    ) or _element_attribute(driver, ('meta[property="og:title"]',), 'content')
+                    lambda driver: '/social/' not in urlsplit(driver.current_url).path.lower()
+                    and (
+                        _element_text(driver, ('h1.ui-pdp-title',))
+                        or _element_attribute(driver, ('meta[property="og:title"]',), 'content')
+                    )
                 )
             except TimeoutException:
                 continue
             candidate_title = _element_text(
-                browser, ('h1.ui-pdp-title', 'h1.andes-typography', 'h1')
-            ) or _element_attribute(browser, ('meta[property="og:title"]',), 'content')
+                browser, ('h1.ui-pdp-title',)
+            ) or _element_attribute(
+                browser, ('meta[property="og:title"]',), 'content'
+            ) or _element_text(
+                browser, ('h1.andes-typography', 'h1')
+            )
             candidate_title = re.sub(
                 r'\s*\|\s*Mercado\s*Livre.*$', '', candidate_title, flags=re.IGNORECASE
             ).strip()
+            last_candidate_title = candidate_title
             if _product_title_matches_message(candidate_title, expected_text):
                 current_url = browser.current_url
                 matched = True
                 break
         if not matched:
             raise AffiliateAutomationError(
-                'A oferta principal da p?gina social n?o corresponde ao produto descrito na mensagem do WhatsApp.'
+                'A oferta principal da página social não corresponde ao produto descrito na mensagem do WhatsApp'
+                + (f' (título encontrado: “{last_candidate_title[:80]}”).' if last_candidate_title else '.')
             )
 
     parts = urlsplit(current_url)

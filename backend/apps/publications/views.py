@@ -4,7 +4,9 @@ Especificação V1.0 - Seção 3.11 (GET /api/publications/)
 """
 
 import os
+import subprocess
 import tempfile
+import time
 import urllib.request
 from collections import Counter
 from pathlib import Path
@@ -104,21 +106,49 @@ class PublicationViewSet(viewsets.ModelViewSet):
             'results': serializer.data,
         })
 
+    _bot_proc_cache = {'checked_at': 0.0, 'running': False}
+
     def _is_bot_running(self):
         lock_path = Path(tempfile.gettempdir()) / 'SantanaAfiliadosBot' / 'whatsapp-offer-monitor.lock'
-        if not lock_path.exists():
-            return False
-        try:
-            f = lock_path.open('a+b')
-            if os.name == 'nt':
-                import msvcrt
-                f.seek(0)
-                msvcrt.locking(f.fileno(), msvcrt.LK_NBLCK, 1)
-                msvcrt.locking(f.fileno(), msvcrt.LK_UNLCK, 1)
-            f.close()
-            return False
-        except Exception:
-            return True
+        if lock_path.exists():
+            try:
+                f = lock_path.open('a+b')
+                if os.name == 'nt':
+                    import msvcrt
+                    f.seek(0)
+                    msvcrt.locking(f.fileno(), msvcrt.LK_NBLCK, 1)
+                    msvcrt.locking(f.fileno(), msvcrt.LK_UNLCK, 1)
+                f.close()
+            except Exception:
+                return True
+
+        # Fallback: se o monitor foi iniciado em outra sessão/TEMP no Windows,
+        # verifica diretamente se existe um processo Python executando o comando.
+        now = time.monotonic()
+        if now - self._bot_proc_cache['checked_at'] < 5.0:
+            return self._bot_proc_cache['running']
+
+        running = False
+        if os.name == 'nt':
+            try:
+                out = subprocess.check_output(
+                    [
+                        'powershell',
+                        '-NoProfile',
+                        '-Command',
+                        "(Get-CimInstance Win32_Process -Filter \"Name='python.exe'\" | Where-Object { $_.CommandLine -like '*monitor_whatsapp_offers*' } | Measure-Object).Count",
+                    ],
+                    text=True,
+                    timeout=3,
+                    creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0),
+                )
+                running = int((out or '0').strip() or '0') > 0
+            except Exception:
+                running = False
+
+        self._bot_proc_cache['checked_at'] = now
+        self._bot_proc_cache['running'] = running
+        return running
 
     def _is_chrome_connected(self):
         try:
