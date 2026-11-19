@@ -43,7 +43,7 @@ def get_source_group_names(groups=None):
     return [
         group['name'].strip()
         for group in groups
-        if group['role'] == WhatsAppGroupRole.SOURCE
+        if group['role'] in (WhatsAppGroupRole.SOURCE, WhatsAppGroupRole.BOTH)
     ]
 
 
@@ -55,5 +55,5 @@ def get_destination_groups(groups=None):
     groups = groups if groups is not None else get_whatsapp_groups()
     return [
         group for group in groups
-        if group['role'] == WhatsAppGroupRole.DESTINATION
+        if group['role'] in (WhatsAppGroupRole.DESTINATION, WhatsAppGroupRole.BOTH)
     ]

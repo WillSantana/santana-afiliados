@@ -25,18 +25,28 @@ def parse_brl_price(value):
 
 
 def extract_item_id(url):
-    match = ITEM_ID_PATTERN.search(urlsplit(url).path)
-    return f'MLB{match.group(1)}' if match else None
+    try:
+        parsed = urlsplit(url)
+    except Exception:
+        return None
+    match = ITEM_ID_PATTERN.search(parsed.path)
+    if match:
+        return f'MLB{match.group(1)}'
+    query_match = re.search(r'(?:item_id|wid|itemId)=MLB-?(\d+)', parsed.query, re.IGNORECASE)
+    if query_match:
+        return f'MLB{query_match.group(1)}'
+    return None
 
 
 def is_marketplace_url(url):
     try:
         parsed = urlsplit(url)
-    except ValueError:
+    except (ValueError, TypeError):
         return False
 
     hostname = (parsed.hostname or '').lower()
-    return parsed.scheme == 'https' and (
-        hostname == 'mercadolivre.com.br'
+    return parsed.scheme in ('https', 'http') and (
+        hostname in ('meli.la', 'www.meli.la', 'mercadolivre.com.br', 'mercadolivre.com')
         or hostname.endswith('.mercadolivre.com.br')
+        or hostname.endswith('.mercadolivre.com')
     )

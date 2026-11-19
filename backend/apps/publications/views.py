@@ -3,10 +3,15 @@ Views de Publicações Promocionais e Disparo WhatsApp
 Especificação V1.0 - Seção 3.11 (GET /api/publications/)
 """
 
+import os
+import tempfile
+import urllib.request
 from collections import Counter
+from pathlib import Path
 
 from django.conf import settings
 from django.db import transaction
+from django.db.models import Q
 from django.utils import timezone
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
@@ -16,6 +21,8 @@ from .models import (
     IncomingAffiliateOffer,
     IncomingOfferStatus,
     Publication,
+    PublicationDelivery,
+    PublicationDeliveryStatus,
     PublicationStatus,
     WhatsAppGroup,
     WhatsAppGroupConfiguration,
@@ -30,6 +37,7 @@ from .group_config import (
 from .serializers import (
     GeneratePublicationSerializer,
     IncomingAffiliateOfferSerializer,
+    PublicationDeliverySerializer,
     PublicationSerializer,
 )
 from .services import WhatsAppDispatcherService
@@ -66,6 +74,11 @@ class PublicationViewSet(viewsets.ModelViewSet):
         source_groups = get_source_group_names(groups)
         offers = IncomingAffiliateOffer.objects.filter(
             source_group__in=source_groups,
+        ).exclude(
+            Q(error_message__icontains='social')
+            | Q(error_message__icontains='/social/')
+        ).exclude(
+            source_link__icontains='/social/'
         ).select_related('product').order_by('-received_at')
         counts = Counter(offers.values_list('status', flat=True))
         statuses = {
@@ -76,7 +89,7 @@ class PublicationViewSet(viewsets.ModelViewSet):
             status__in=(IncomingOfferStatus.PUBLISHED, IncomingOfferStatus.UNCERTAIN),
             published_at__date=timezone.localdate(),
         ).count()
-        serializer = IncomingAffiliateOfferSerializer(offers[:100], many=True)
+        serializer = IncomingAffiliateOfferSerializer(offers[:150], many=True)
         return Response({
             'source_groups': source_groups,
             'source_group': source_groups[0] if source_groups else '',
@@ -86,7 +99,165 @@ class PublicationViewSet(viewsets.ModelViewSet):
             'daily_limit': getattr(settings, 'AFFILIATE_BOT_DAILY_LIMIT', 20),
             'today_sent': today_sent,
             'statuses': statuses,
+            'bot_running': self._is_bot_running(),
+            'chrome_connected': self._is_chrome_connected(),
             'results': serializer.data,
+        })
+
+    def _is_bot_running(self):
+        lock_path = Path(tempfile.gettempdir()) / 'SantanaAfiliadosBot' / 'whatsapp-offer-monitor.lock'
+        if not lock_path.exists():
+            return False
+        try:
+            f = lock_path.open('a+b')
+            if os.name == 'nt':
+                import msvcrt
+                f.seek(0)
+                msvcrt.locking(f.fileno(), msvcrt.LK_NBLCK, 1)
+                msvcrt.locking(f.fileno(), msvcrt.LK_UNLCK, 1)
+            f.close()
+            return False
+        except Exception:
+            return True
+
+    def _is_chrome_connected(self):
+        try:
+            req = urllib.request.Request('http://127.0.0.1:9222/json/version')
+            with urllib.request.urlopen(req, timeout=0.8) as resp:
+                return resp.status == 200
+        except Exception:
+            return False
+
+    @action(detail=False, methods=['get'], url_path='dashboard')
+    def dashboard(self, request):
+        groups = get_whatsapp_groups()
+        source_groups = get_source_group_names(groups)
+        dest_groups = [g['name'] for g in get_destination_groups(groups)]
+
+        all_offers = IncomingAffiliateOffer.objects.exclude(
+            Q(error_message__icontains='social')
+            | Q(error_message__icontains='/social/')
+        ).exclude(
+            source_link__icontains='/social/'
+        )
+        total_offers = all_offers.count()
+        counts = Counter(all_offers.values_list('status', flat=True))
+
+        total_deliveries = PublicationDelivery.objects.count()
+        deliveries_success = PublicationDelivery.objects.filter(status=PublicationDeliveryStatus.SUCCESS).count()
+        deliveries_failed = PublicationDelivery.objects.filter(status=PublicationDeliveryStatus.FAILED).count()
+        deliveries_uncertain = PublicationDelivery.objects.filter(status=PublicationDeliveryStatus.UNCERTAIN).count()
+
+        incoming_affiliate_urls = set(
+            all_offers.exclude(affiliate_url='').values_list('affiliate_url', flat=True)
+        )
+        product_affiliate_urls = set(
+            ProductOffer.objects.exclude(affiliate_url='').values_list('affiliate_url', flat=True)
+        )
+        affiliates_count = len(incoming_affiliate_urls | product_affiliate_urls)
+        today_sent = PublicationDelivery.objects.filter(
+            status=PublicationDeliveryStatus.SUCCESS,
+            sent_at__date=timezone.localdate(),
+        ).count()
+
+        recent_deliveries = PublicationDelivery.objects.select_related('publication__product').order_by('-sent_at')[:20]
+        recent_offers = all_offers.select_related('product').order_by('-received_at')[:15]
+
+        return Response({
+            'bot_status': {
+                'running': self._is_bot_running(),
+                'chrome_connected': self._is_chrome_connected(),
+                'daily_limit': getattr(settings, 'AFFILIATE_BOT_DAILY_LIMIT', 20),
+                'today_sent': today_sent,
+            },
+            'metrics': {
+                'total_offers': total_offers,
+                'pending_offers': counts.get(IncomingOfferStatus.PENDING, 0),
+                'published_offers': counts.get(IncomingOfferStatus.PUBLISHED, 0),
+                'failed_offers': counts.get(IncomingOfferStatus.FAILED, 0),
+                'ignored_offers': counts.get(IncomingOfferStatus.IGNORED, 0),
+                'affiliates_generated': affiliates_count,
+                'total_deliveries': total_deliveries,
+                'deliveries_success': deliveries_success,
+                'deliveries_failed': deliveries_failed,
+                'deliveries_uncertain': deliveries_uncertain,
+            },
+            'groups': {
+                'sources': source_groups,
+                'destinations': dest_groups,
+            },
+            'recent_deliveries': PublicationDeliverySerializer(recent_deliveries, many=True).data,
+            'recent_offers': IncomingAffiliateOfferSerializer(recent_offers, many=True).data,
+        })
+
+    @action(detail=False, methods=['get'], url_path='deliveries')
+    def deliveries(self, request):
+        queryset = PublicationDelivery.objects.select_related('publication__product', 'incoming_offer').order_by('-sent_at')
+        status_param = request.query_params.get('status')
+        group_param = request.query_params.get('group')
+        if status_param:
+            queryset = queryset.filter(status=status_param)
+        if group_param:
+            queryset = queryset.filter(target_group_name__icontains=group_param)
+        serializer = PublicationDeliverySerializer(queryset[:150], many=True)
+        return Response({
+            'total': queryset.count(),
+            'results': serializer.data,
+        })
+
+    @action(detail=False, methods=['get'], url_path='affiliate-links')
+    def affiliate_links(self, request):
+        offers_with_link = IncomingAffiliateOffer.objects.filter(
+            Q(affiliate_url__gt='') | Q(product__affiliate_url__gt='')
+        ).select_related('product').order_by('-updated_at')
+        
+        items = []
+        seen_urls = set()
+        for offer in offers_with_link[:150]:
+            affiliate_url = offer.affiliate_url or (
+                offer.product.affiliate_url if offer.product else ''
+            )
+            if not affiliate_url:
+                continue
+            seen_urls.add(affiliate_url)
+            items.append({
+                'id': offer.id,
+                'product_title': offer.product.title if offer.product else 'Produto não identificado',
+                'item_id': offer.product.item_id if offer.product else '',
+                'source_link': offer.source_link,
+                'product_url': offer.product.product_url if offer.product else '',
+                'affiliate_url': affiliate_url,
+                'generated_at': offer.processed_at or offer.updated_at,
+                'validation_status': 'Validado no Mercado Livre' if offer.status in (IncomingOfferStatus.PUBLISHED, IncomingOfferStatus.PREPARED) else 'Pendente de validação',
+                'is_valid': offer.status in (IncomingOfferStatus.PUBLISHED, IncomingOfferStatus.PREPARED),
+                'offer_status': offer.status,
+            })
+        if len(items) < 150:
+            legacy_publications = Publication.objects.filter(
+                product__affiliate_url__gt=''
+            ).select_related('product').order_by('-created_at')
+            for publication in legacy_publications:
+                affiliate_url = publication.product.affiliate_url
+                if affiliate_url in seen_urls:
+                    continue
+                seen_urls.add(affiliate_url)
+                items.append({
+                    'id': f'publication-{publication.id}',
+                    'product_title': publication.product.title,
+                    'item_id': publication.product.item_id,
+                    'source_link': publication.product.product_url,
+                    'product_url': publication.product.product_url,
+                    'affiliate_url': affiliate_url,
+                    'generated_at': publication.published_at or publication.created_at,
+                    'validation_status': 'Link oficial salvo no Mercado Livre',
+                    'is_valid': True,
+                    'offer_status': publication.status,
+                })
+                if len(items) >= 150:
+                    break
+        return Response({
+            'total': len(items),
+            'results': items,
         })
 
     @action(detail=False, methods=['get', 'put'], url_path='whatsapp-groups')
@@ -157,29 +328,6 @@ class PublicationViewSet(viewsets.ModelViewSet):
             if jid:
                 seen_jids.add(jid)
             normalized.append({'name': name, 'jid': jid or None, 'role': role})
-
-        source_keys = {
-            (group['name'].casefold(), group['jid'])
-            for group in normalized
-            if group['role'] == WhatsAppGroupRole.SOURCE
-        }
-        destination_groups = [
-            group for group in normalized
-            if group['role'] == WhatsAppGroupRole.DESTINATION
-        ]
-        if any(
-            (destination['name'].casefold(), destination['jid']) in source_keys
-            or any(
-                source_name == destination['name'].casefold()
-                or (source_jid and source_jid == destination['jid'])
-                for source_name, source_jid in source_keys
-            )
-            for destination in destination_groups
-        ):
-            return Response(
-                {'error': 'O grupo de origem não pode ser cadastrado também como destino.'},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
 
         with transaction.atomic():
             WhatsAppGroup.objects.all().delete()

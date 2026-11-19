@@ -157,9 +157,6 @@ class ProductOffer(models.Model):
             return False
         if re.search(r'/jm/search(?:/|$)', parsed_url.path, re.IGNORECASE):
             return False
-        catalog_match = re.fullmatch(r'/p/MLB-?(\d+)/?', parsed_url.path, re.IGNORECASE)
-        if catalog_match and item_id and catalog_match.group(1) == item_id[3:]:
-            return False
         return bool(parsed_url.path.strip('/'))
 
     @property

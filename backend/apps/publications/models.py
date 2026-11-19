@@ -30,6 +30,7 @@ class IncomingOfferStatus(models.TextChoices):
 class WhatsAppGroupRole(models.TextChoices):
     SOURCE = 'source', 'Origem monitorada'
     DESTINATION = 'destination', 'Destino de publicação'
+    BOTH = 'both', 'Origem e destino'
 
 
 class WhatsAppGroupConfiguration(models.Model):
@@ -68,11 +69,12 @@ class WhatsAppGroup(models.Model):
 
 class IncomingAffiliateOffer(models.Model):
     """
-    Deduplication and audit record for a short affiliate link found in the source chat.
-    Raw WhatsApp message bodies are deliberately not persisted.
+    Deduplication and audit record for an affiliate offer found in the source chat.
+    Stores the full original message for auditing and transparency.
     """
     source_link = models.URLField(max_length=512, unique=True)
     source_group = models.CharField(max_length=128)
+    original_message = models.TextField(blank=True, verbose_name="Mensagem original recebida")
     coupon = models.CharField(max_length=80, blank=True)
     status = models.CharField(
         max_length=24,
@@ -94,6 +96,7 @@ class IncomingAffiliateOffer(models.Model):
         on_delete=models.SET_NULL,
         related_name='incoming_affiliate_offers',
     )
+    affiliate_url = models.URLField(max_length=1000, blank=True, verbose_name="Link de afiliado gerado")
     error_message = models.TextField(blank=True)
     received_at = models.DateTimeField(default=timezone.now, db_index=True)
     processed_at = models.DateTimeField(null=True, blank=True)
@@ -202,3 +205,68 @@ class Publication(models.Model):
         self.product.published_at = timezone.now()
         self.product.save(update_fields=['status', 'published_at', 'updated_at'])
         self.save(update_fields=['status', 'published_at', 'updated_at'])
+
+
+class PublicationDeliveryStatus(models.TextChoices):
+    SUCCESS = 'success', 'Enviado com sucesso'
+    FAILED = 'failed', 'Falha no envio'
+    UNCERTAIN = 'uncertain', 'Envio incerto'
+
+
+class PublicationDelivery(models.Model):
+    """
+    Registro individual de envio por grupo de destino.
+    Garante rastreabilidade independente (ex: 5 grupos = 5 registros de envio).
+    """
+    publication = models.ForeignKey(
+        Publication,
+        on_delete=models.CASCADE,
+        related_name='deliveries',
+        verbose_name="Publicação associada"
+    )
+    incoming_offer = models.ForeignKey(
+        IncomingAffiliateOffer,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='deliveries',
+        verbose_name="Oferta de origem"
+    )
+    target_group_name = models.CharField(
+        max_length=128,
+        verbose_name="Grupo de destino"
+    )
+    target_group_jid = models.CharField(
+        max_length=128,
+        blank=True,
+        null=True,
+        verbose_name="JID de destino"
+    )
+    affiliate_url = models.URLField(
+        max_length=1000,
+        verbose_name="Link de afiliado utilizado"
+    )
+    status = models.CharField(
+        max_length=24,
+        choices=PublicationDeliveryStatus.choices,
+        default=PublicationDeliveryStatus.SUCCESS,
+        verbose_name="Status do envio"
+    )
+    error_message = models.TextField(
+        blank=True,
+        verbose_name="Mensagem de erro"
+    )
+    sent_at = models.DateTimeField(
+        default=timezone.now,
+        verbose_name="Data e horário do envio"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Registro de Envio Individual"
+        verbose_name_plural = "Registros de Envios Individuais"
+        ordering = ['-sent_at', '-id']
+
+    def __str__(self):
+        return f'{self.target_group_name} - {self.status} ({self.sent_at})'
+
