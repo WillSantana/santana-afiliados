@@ -7,7 +7,12 @@ const withUiKey = (group) => ({
   ...group,
   _uiKey: group._uiKey || (group.id != null ? `server-${group.id}` : `local-${++nextLocalGroupKey}`),
 });
-const toApiGroup = ({ name, jid, role }) => ({ name: name.trim(), jid: jid?.trim() || null, role });
+const toApiGroup = ({ name, jid, role, send_authorized }) => ({
+  name: name.trim(),
+  jid: jid?.trim() || null,
+  role,
+  send_authorized: Boolean(send_authorized),
+});
 
 export default function WhatsAppConfigModal({
   isOpen,
@@ -71,7 +76,7 @@ export default function WhatsAppConfigModal({
     }
     const updated = [
       ...groupList,
-      withUiKey({ name, jid: jid || null, role: newGroupRole }),
+      withUiKey({ name, jid: jid || null, role: newGroupRole, send_authorized: false }),
     ];
     setGroupList(updated);
     setHasChanges(true);
@@ -93,11 +98,24 @@ export default function WhatsAppConfigModal({
 
   const handleChangeRole = (group, role) => {
     const updated = groupList.map((item) => (
-      groupKey(item) === groupKey(group) ? { ...item, role } : item
+      groupKey(item) === groupKey(group)
+        ? { ...item, role, send_authorized: role === 'source' ? false : Boolean(item.send_authorized) }
+        : item
     ));
     setGroupList(updated);
     setHasChanges(true);
     setError('');
+  };
+
+  const handleToggleAuthorized = (group) => {
+    const nextValue = !group.send_authorized;
+    if (
+      nextValue &&
+      !window.confirm(`Autorizar o envio automático de ofertas no grupo "${group.name}"?`)
+    ) {
+      return;
+    }
+    handleUpdateGroup(group, { send_authorized: nextValue });
   };
 
   const handleUpdateGroup = (group, changes) => {
@@ -257,6 +275,21 @@ export default function WhatsAppConfigModal({
                       <option value="destination">Destino de publicação</option>
                       <option value="both">Origem e destino</option>
                     </select>
+                    {(group.role === 'destination' || group.role === 'both') && (
+                      <button
+                        type="button"
+                        className={group.send_authorized ? 'btn-action' : 'btn-action btn-reject'}
+                        disabled={saving}
+                        onClick={() => handleToggleAuthorized(group)}
+                        title={
+                          group.send_authorized
+                            ? 'Envio autorizado (clique para bloquear)'
+                            : 'Envio bloqueado até sua autorização (clique para autorizar)'
+                        }
+                      >
+                        {group.send_authorized ? 'Autorizado' : 'Bloqueado'}
+                      </button>
+                    )}
                     {group.role === 'destination' && group.jid && !isActive && (
                       <button
                         type="button"

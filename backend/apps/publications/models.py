@@ -55,6 +55,10 @@ class WhatsAppGroup(models.Model):
         choices=WhatsAppGroupRole.choices,
         verbose_name='Uso do grupo',
     )
+    send_authorized = models.BooleanField(
+        default=False,
+        verbose_name='Envio autorizado',
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

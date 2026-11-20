@@ -13,7 +13,7 @@ from pathlib import Path
 
 from django.conf import settings
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import Count, Max, Q
 from django.utils import timezone
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
@@ -185,10 +185,52 @@ class PublicationViewSet(viewsets.ModelViewSet):
             ProductOffer.objects.exclude(affiliate_url='').values_list('affiliate_url', flat=True)
         )
         affiliates_count = len(incoming_affiliate_urls | product_affiliate_urls)
+        today = timezone.localdate()
         today_sent = PublicationDelivery.objects.filter(
             status=PublicationDeliveryStatus.SUCCESS,
-            sent_at__date=timezone.localdate(),
+            sent_at__date=today,
         ).count()
+
+        group_stats_rows = (
+            PublicationDelivery.objects.values('target_group_name')
+            .annotate(
+                total_success=Count('id', filter=Q(status=PublicationDeliveryStatus.SUCCESS)),
+                today_success=Count(
+                    'id',
+                    filter=Q(status=PublicationDeliveryStatus.SUCCESS, sent_at__date=today),
+                ),
+                total_failed=Count('id', filter=Q(status=PublicationDeliveryStatus.FAILED)),
+                last_sent_at=Max('sent_at', filter=Q(status=PublicationDeliveryStatus.SUCCESS)),
+            )
+        )
+        dest_group_set = set(dest_groups)
+        stats_by_name = {
+            row['target_group_name']: {
+                'group_name': row['target_group_name'],
+                'today_success': row['today_success'],
+                'total_success': row['total_success'],
+                'total_failed': row['total_failed'],
+                'last_sent_at': row['last_sent_at'].isoformat() if row['last_sent_at'] else None,
+            }
+            for row in group_stats_rows
+            if row['target_group_name']
+            and (row['target_group_name'] in dest_group_set or row['total_success'] > 0)
+        }
+        for dest_name in dest_groups:
+            stats_by_name.setdefault(
+                dest_name,
+                {
+                    'group_name': dest_name,
+                    'today_success': 0,
+                    'total_success': 0,
+                    'total_failed': 0,
+                    'last_sent_at': None,
+                },
+            )
+        posts_by_group = sorted(
+            stats_by_name.values(),
+            key=lambda item: (-item['total_success'], -item['today_success'], item['group_name'].casefold()),
+        )
 
         recent_deliveries = PublicationDelivery.objects.select_related('publication__product').order_by('-sent_at')[:20]
         recent_offers = all_offers.select_related('product').order_by('-received_at')[:15]
@@ -216,6 +258,7 @@ class PublicationViewSet(viewsets.ModelViewSet):
                 'sources': source_groups,
                 'destinations': dest_groups,
             },
+            'posts_by_group': posts_by_group,
             'recent_deliveries': PublicationDeliverySerializer(recent_deliveries, many=True).data,
             'recent_offers': IncomingAffiliateOfferSerializer(recent_offers, many=True).data,
         })
@@ -333,6 +376,12 @@ class PublicationViewSet(viewsets.ModelViewSet):
                     {'error': f'Selecione se “{name}” é origem ou destino.'},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
+            from .affiliate_watcher import is_blocked_send_group
+            if role in (WhatsAppGroupRole.DESTINATION, WhatsAppGroupRole.BOTH) and is_blocked_send_group(name):
+                return Response(
+                    {'error': f'O grupo “{name}” está bloqueado para envio de ofertas.'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
             if role == WhatsAppGroupRole.DESTINATION and not jid:
                 return Response(
                     {'error': f'Informe o JID de destino para o grupo “{name}”.'},
@@ -357,7 +406,17 @@ class PublicationViewSet(viewsets.ModelViewSet):
                 )
             if jid:
                 seen_jids.add(jid)
-            normalized.append({'name': name, 'jid': jid or None, 'role': role})
+            send_authorized = (
+                bool(item.get('send_authorized', False))
+                if role in (WhatsAppGroupRole.DESTINATION, WhatsAppGroupRole.BOTH)
+                else False
+            )
+            normalized.append({
+                'name': name,
+                'jid': jid or None,
+                'role': role,
+                'send_authorized': send_authorized,
+            })
 
         with transaction.atomic():
             WhatsAppGroup.objects.all().delete()

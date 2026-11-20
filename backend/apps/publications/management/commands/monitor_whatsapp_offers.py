@@ -22,6 +22,7 @@ from apps.publications.affiliate_watcher import (
     record_new_offers,
     record_startup_baseline,
     release_process_lock,
+    select_next_pending_offer,
     wait_for_publish_window,
 )
 from apps.publications.group_config import (
@@ -318,10 +319,12 @@ class Command(BaseCommand):
                             if options['send']
                             else (IncomingOfferStatus.PENDING,)
                         )
-                        pending = IncomingAffiliateOffer.objects.filter(
-                            source_group__in=sources_to_query,
-                            status__in=statuses_to_process,
-                        ).order_by('received_at', 'id').first()
+                        pending = select_next_pending_offer(
+                            IncomingAffiliateOffer.objects.filter(
+                                source_group__in=sources_to_query,
+                                status__in=statuses_to_process,
+                            )
+                        )
                         if not pending:
                             break
 

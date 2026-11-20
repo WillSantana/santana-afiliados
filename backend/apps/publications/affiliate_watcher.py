@@ -210,22 +210,65 @@ def close_automation_tab(browser, tab_handle=None, fallback_tab=None, handles_be
 
 
 def _normalize_group_name(name):
-    if not name:
+    if not name or not isinstance(name, str):
         return ''
     cleaned = re.sub(r'[\u200e\u200f\u202a-\u202e\ufe0f]+', '', name)
     # Remove emojis/símbolos fora do BMP (no cabeçalho do WhatsApp Web eles são
     # renderizados como <img> e não aparecem no innerText).
     cleaned = ''.join(ch for ch in cleaned if ord(ch) <= 0xFFFF)
+    # Remove acentos para tolerar pequenas variações (ex.: "promoçoes" vs "Promoções")
+    cleaned = ''.join(
+        ch for ch in unicodedata.normalize('NFKD', cleaned)
+        if not unicodedata.combining(ch)
+    )
     cleaned = re.sub(r'\s+', ' ', cleaned).strip().lower()
     return cleaned
 
 
-def _is_group_match(name1, name2):
-    n1 = _normalize_group_name(name1)
-    n2 = _normalize_group_name(name2)
-    if not n1 or not n2:
+DEFAULT_BLOCKED_SEND_GROUPS = frozenset({
+    'geral',
+    'sti geral',
+})
+
+
+def _blocked_send_group_names():
+    blocked = set(DEFAULT_BLOCKED_SEND_GROUPS)
+    extra = getattr(settings, 'AFFILIATE_BOT_BLOCKED_GROUPS', '') or ''
+    for item in str(extra).split(','):
+        normalized = _normalize_group_name(item)
+        if normalized:
+            blocked.add(normalized)
+    return blocked
+
+
+def is_blocked_send_group(group_name):
+    normalized = _normalize_group_name(group_name)
+    if not normalized:
         return False
-    return n1 == n2 or n1 in n2 or n2 in n1
+    blocked = _blocked_send_group_names()
+    if normalized in blocked:
+        return True
+    if 'sti geral' in normalized:
+        return True
+    return False
+
+
+def _is_group_match(actual_name, expected_name):
+    actual = _normalize_group_name(actual_name)
+    expected = _normalize_group_name(expected_name)
+    if not actual or not expected:
+        return False
+    if actual == expected:
+        return True
+    # Permite correspondência apenas quando o nome real no WhatsApp começa com o nome
+    # configurado em fronteira de palavra (ex.: "COMPRAS & VENDAS PRESENCIAL & ONLINE"
+    # para "COMPRAS & VENDAS PRESENCIAL"), nunca quando o chat aberto é um trecho curto
+    # como "Geral" (comunidade STI) dentro de "Catira Geral Nova Contagem".
+    if len(expected) >= 8 and actual.startswith(expected):
+        next_char = actual[len(expected):len(expected) + 1]
+        if not next_char or not next_char.isalnum():
+            return True
+    return False
 
 
 def _current_group_name(browser):
@@ -358,45 +401,34 @@ def open_whatsapp_group(browser, group_name, timeout=30):
                     continue
         return None
 
-    # Limpa qualquer busca anterior antes de localizar o campo
-    try:
-        browser.execute_script("""
-            document.querySelectorAll('[data-animate-modal-popup],[data-testid="intro-md-beta-logo-dark"]').forEach(el => el.style.display='none');
-            const closeBtn = document.querySelector('button[aria-label="End icon button"], #side button[aria-label="Cancelar pesquisa"], #side [data-icon="x-alt"]');
-            if (closeBtn) closeBtn.click();
-        """)
-        time.sleep(0.2)
-    except Exception:
-        pass
-
-    search = find_search_input()
-    if not search:
-        raise AffiliateAutomationError(
-            'Não encontrei a busca de conversas do WhatsApp Web. A interface pode ter mudado.'
-        )
-
-    # Focar e digitar o nome do grupo na busca
-    try:
-        search.click()
-    except Exception:
+    def clear_search_box():
         try:
-            browser.execute_script("arguments[0].focus(); arguments[0].click();", search)
+            current_search = find_search_input()
+            if current_search:
+                try:
+                    current_search.send_keys(Keys.CONTROL, 'a')
+                    current_search.send_keys(Keys.BACKSPACE)
+                    current_search.send_keys(Keys.ESCAPE)
+                except Exception:
+                    pass
+            browser.execute_script("""
+                document.querySelectorAll('[data-animate-modal-popup],[data-testid="intro-md-beta-logo-dark"]').forEach(el => el.style.display='none');
+                const selectors = [
+                    'button[aria-label="End icon button"]',
+                    '#side button[aria-label="Cancelar pesquisa"]',
+                    '#side button[aria-label="Cancel search"]',
+                    '#side button[aria-label="Voltar"]',
+                    '#side button[aria-label="Back"]',
+                    '#side [data-icon="x-alt"]',
+                ];
+                for (const sel of selectors) {
+                    const btn = document.querySelector(sel);
+                    if (btn) btn.click();
+                }
+            """)
+            time.sleep(0.25)
         except Exception:
             pass
-
-    # Remove caracteres fora do plano BMP apenas na digitação da busca do ChromeDriver
-    search_query = ''.join(ch for ch in group_name if ord(ch) <= 0xFFFF).strip() or group_name
-    search_query = re.sub(r'\s+', ' ', search_query)
-
-    time.sleep(0.2)
-    try:
-        search.send_keys(Keys.CONTROL, 'a')
-        search.send_keys(Keys.BACKSPACE)
-        search.send_keys(search_query)
-    except Exception:
-        browser.execute_script("arguments[0].focus();", search)
-        from selenium.webdriver.common.action_chains import ActionChains
-        ActionChains(browser).key_down(Keys.CONTROL).send_keys('a').key_up(Keys.CONTROL).send_keys(Keys.BACKSPACE).send_keys(search_query).perform()
 
     def exact_result(driver):
         for element in driver.find_elements(By.CSS_SELECTOR, '#pane-side span[title], #side span[title]'):
@@ -408,29 +440,51 @@ def open_whatsapp_group(browser, group_name, timeout=30):
                 continue
         return False
 
-    try:
-        result = WebDriverWait(browser, min(timeout, 8)).until(exact_result)
-        click_group_result(result, search)
+    # Remove caracteres fora do plano BMP apenas na digitação da busca do ChromeDriver
+    full_query = ''.join(ch for ch in group_name if ord(ch) <= 0xFFFF).strip() or group_name
+    full_query = re.sub(r'\s+', ' ', full_query)
+    words = full_query.split()
+    short_query = ' '.join(words[:2]) if len(words) >= 3 else ''
+    queries = [full_query] + ([short_query] if short_query and short_query != full_query else [])
+
+    for query in queries:
+        clear_search_box()
+        search = find_search_input()
+        if not search:
+            raise AffiliateAutomationError(
+                'Não encontrei a busca de conversas do WhatsApp Web. A interface pode ter mudado.'
+            )
+
         try:
-            current_search = find_search_input()
-            if current_search:
-                current_search.send_keys(Keys.CONTROL, 'a')
-                current_search.send_keys(Keys.BACKSPACE)
-                current_search.send_keys(Keys.ESCAPE)
-            browser.execute_script("""
-                const closeBtn = document.querySelector('button[aria-label="End icon button"], #side button[aria-label="Cancelar pesquisa"], #side [data-icon="x-alt"]');
-                if (closeBtn) closeBtn.click();
-            """)
+            search.click()
         except Exception:
-            pass
-        if _is_group_match(_current_group_name(browser), group_name):
-            return
-    except WebDriverException:
-        pass
+            try:
+                browser.execute_script("arguments[0].focus(); arguments[0].click();", search)
+            except Exception:
+                pass
+
+        time.sleep(0.2)
+        try:
+            search.send_keys(Keys.CONTROL, 'a')
+            search.send_keys(Keys.BACKSPACE)
+            search.send_keys(query)
+        except Exception:
+            browser.execute_script("arguments[0].focus();", search)
+            from selenium.webdriver.common.action_chains import ActionChains
+            ActionChains(browser).key_down(Keys.CONTROL).send_keys('a').key_up(Keys.CONTROL).send_keys(Keys.BACKSPACE).send_keys(query).perform()
+
+        try:
+            result = WebDriverWait(browser, min(timeout, 10)).until(exact_result)
+            click_group_result(result, search)
+            clear_search_box()
+            if _is_group_match(_current_group_name(browser), group_name):
+                return
+        except WebDriverException:
+            clear_search_box()
 
     selected_group = _current_group_name(browser) or 'nenhum grupo identificado'
     raise AffiliateAutomationError(
-        f'Não consegui abrir e confirmar o grupo de origem “{group_name}”. '
+        f'Não consegui abrir e confirmar o grupo “{group_name}”. '
         f'Grupo atual no WhatsApp: “{selected_group}”.'
     )
 
@@ -915,6 +969,25 @@ def resolve_product_page(browser, url, expected_text=''):
     if not thumbnail.startswith('https://'):
         thumbnail = ''
 
+    rating = None
+    rating_text = _element_text(
+        browser,
+        (
+            '.ui-pdp-review__rating',
+            '[class*="ui-pdp-review__rating"]',
+            '.ui-review-capability__rating__average',
+        ),
+    ) or _element_attribute(browser, ('meta[itemprop="ratingValue"]',), 'content')
+    if rating_text:
+        match_rating = re.search(r'(\d(?:[.,]\d)?)', rating_text)
+        if match_rating:
+            try:
+                parsed_rating = float(match_rating.group(1).replace(',', '.'))
+                if 0.0 < parsed_rating <= 5.0:
+                    rating = parsed_rating
+            except ValueError:
+                rating = None
+
     return {
         'item_id': item_id,
         'title': title[:255],
@@ -922,7 +995,80 @@ def resolve_product_page(browser, url, expected_text=''):
         'original_price': original_price,
         'product_url': product_url,
         'thumbnail': thumbnail,
+        'rating': rating,
     }
+
+
+def evaluate_offer_quality(details, coupon=''):
+    """
+    Aplica filtro de qualidade para publicar apenas boas promoções:
+    - Preço mínimo (padrão R$ 20,00)
+    - Nota mínima do produto quando disponível na página do ML (padrão 4,0)
+    - Desconto real mínimo na página do ML (padrão 15% OFF) OU cupom ativo
+    Retorna (approved: bool, reason: str).
+    """
+    min_discount_pct = float(getattr(settings, 'AFFILIATE_BOT_MIN_DISCOUNT_PCT', 15))
+    min_price = float(getattr(settings, 'AFFILIATE_BOT_MIN_PRICE', 20.0))
+    min_rating = float(getattr(settings, 'AFFILIATE_BOT_MIN_RATING', 4.0))
+
+    price_val = float(details['price'])
+    if price_val < min_price:
+        return (
+            False,
+            f'Oferta ignorada: preço R$ {price_val:.2f} abaixo do mínimo configurado (R$ {min_price:.2f}).',
+        )
+
+    rating = details.get('rating')
+    if rating is not None and float(rating) < min_rating:
+        return (
+            False,
+            f'Oferta ignorada: avaliação {float(rating):.1f} abaixo do mínimo configurado ({min_rating:.1f}).',
+        )
+
+    original_val = details.get('original_price')
+    discount_pct = 0.0
+    if original_val and float(original_val) > price_val:
+        discount_pct = ((float(original_val) - price_val) / float(original_val)) * 100.0
+
+    has_coupon = bool((coupon or '').strip())
+    if not has_coupon and discount_pct < min_discount_pct:
+        if discount_pct <= 0:
+            return (
+                False,
+                f'Oferta ignorada: sem desconto verificável no Mercado Livre e sem cupom (mínimo {min_discount_pct:.0f}% OFF).',
+            )
+        return (
+            False,
+            f'Oferta ignorada: desconto de {round(discount_pct)}% OFF abaixo do mínimo ({min_discount_pct:.0f}% OFF) e sem cupom.',
+        )
+
+    return True, ''
+
+
+def _offer_queue_priority(offer):
+    score = 0
+    if offer.product_id and getattr(offer.product, 'discount_percentage', 0):
+        score += min(int(offer.product.discount_percentage), 90)
+    if (offer.coupon or '').strip():
+        score += 25
+    text = (offer.original_message or '').lower()
+    pct_matches = [int(m) for m in re.findall(r'(\d{1,2})\s*%\s*(?:off|de desconto|desconto)?', text)]
+    if pct_matches:
+        score += min(max(pct_matches), 80)
+    if any(kw in text for kw in ('menor preço', 'menor preco', 'oferta relâmpago', 'oferta relampago', 'imperdível', 'imperdivel', 'baixou', 'cupom')):
+        score += 10
+    return score
+
+
+def select_next_pending_offer(queryset):
+    """
+    Seleciona a oferta mais promissora da fila (priorizando maiores descontos e cupons).
+    """
+    candidates = list(queryset.select_related('product').order_by('received_at', 'id')[:50])
+    if not candidates:
+        return None
+    candidates.sort(key=lambda item: (-_offer_queue_priority(item), item.received_at, item.id))
+    return candidates[0]
 
 
 def _extract_meli_short_links(text):
@@ -1233,10 +1379,42 @@ def _publish_offer_to_group(browser, whatsapp_tab, target_group, message, affili
     from selenium.webdriver.common.keys import Keys
     from selenium.webdriver.support.ui import WebDriverWait
 
+    if is_blocked_send_group(target_group):
+        raise AffiliateAutomationError(
+            f'Envio bloqueado por segurança para o grupo “{target_group}”.'
+        )
+
     browser.switch_to.window(whatsapp_tab)
     open_whatsapp_group(browser, target_group)
-    if not _is_group_match(_current_group_name(browser), target_group):
+    opened_group = _current_group_name(browser)
+    if is_blocked_send_group(opened_group):
+        raise AffiliateAutomationError(
+            f'Envio cancelado: o grupo aberto no WhatsApp (“{opened_group}”) está bloqueado para envio.'
+        )
+    if not _is_group_match(opened_group, target_group):
         raise AffiliateAutomationError(f'Grupo de destino “{target_group}” não pôde ser confirmado no WhatsApp.')
+
+    # Detecção rápida de grupo fechado / somente administradores (evita esperar 20s)
+    try:
+        footer_text = (browser.execute_script("""
+            const footer = document.querySelector('#main footer');
+            return footer ? (footer.innerText || '').trim().toLowerCase() : '';
+        """) or '')
+        if any(phrase in footer_text for phrase in (
+            'somente admins',
+            'apenas admins',
+            'only admins',
+            'você não pode enviar mensagens',
+            'voce nao pode enviar mensagens',
+            "you can't send messages",
+        )):
+            raise AffiliateAutomationError(
+                f'O grupo “{target_group}” está fechado ou permite envio apenas para administradores.'
+            )
+    except AffiliateAutomationError:
+        raise
+    except Exception:
+        pass
 
     composer = WebDriverWait(browser, 20).until(_message_composer)
     _clear_message_composer(browser)
@@ -1266,7 +1444,12 @@ def _publish_offer_to_group(browser, whatsapp_tab, target_group, message, affili
     # Aguarda 2 segundos para o WhatsApp renderizar o preview da mensagem antes de enviar
     time.sleep(2)
 
-    if not _is_group_match(_current_group_name(browser), target_group):
+    active_group = _current_group_name(browser)
+    if is_blocked_send_group(active_group):
+        raise AffiliateAutomationError(
+            f'Envio cancelado: o grupo ativo no WhatsApp (“{active_group}”) está bloqueado para envio.'
+        )
+    if not _is_group_match(active_group, target_group):
         raise AffiliateAutomationError(f'O grupo ativo mudou antes do envio; publicação cancelada.')
 
     button = WebDriverWait(browser, 15).until(_send_button)
@@ -1288,66 +1471,170 @@ def _publish_offer_to_group(browser, whatsapp_tab, target_group, message, affili
     return True
 
 
+def select_balanced_target_groups(target_groups, max_lead=None):
+    """
+    Ordena os grupos destino do menor para o maior número de envios bem-sucedidos hoje
+    e prioriza os grupos que estão até `max_lead` envios acima do menor grupo saudável,
+    distribuindo as publicações de forma equilibrada entre todos os grupos.
+    Retorna (priority_groups, overflow_groups).
+    """
+    from django.db.models import Count, Q
+    from .models import PublicationDelivery, PublicationDeliveryStatus
+
+    if max_lead is None:
+        max_lead = max(0, int(getattr(settings, 'AFFILIATE_BOT_MAX_GROUP_LEAD', 2)))
+
+    eligible = []
+    for item in target_groups:
+        group_name = item['name'] if isinstance(item, dict) else item
+        if not group_name or is_blocked_send_group(group_name):
+            continue
+        eligible.append(item)
+
+    if len(eligible) <= 1:
+        return eligible, []
+
+    today = timezone.localdate()
+    eligible_names = [item['name'] if isinstance(item, dict) else item for item in eligible]
+
+    counts_rows = (
+        PublicationDelivery.objects.filter(
+            target_group_name__in=eligible_names,
+            status=PublicationDeliveryStatus.SUCCESS,
+        )
+        .values('target_group_name')
+        .annotate(
+            today_count=Count('id', filter=Q(sent_at__date=today)),
+            total_count=Count('id'),
+        )
+    )
+    today_counts = {row['target_group_name']: row['today_count'] for row in counts_rows}
+    total_counts = {row['target_group_name']: row['total_count'] for row in counts_rows}
+
+    last_status_by_group = {}
+    recent_today = (
+        PublicationDelivery.objects.filter(
+            target_group_name__in=eligible_names,
+            sent_at__date=today,
+        )
+        .order_by('-sent_at', '-id')
+        .values_list('target_group_name', 'status')
+    )
+    for g_name, g_status in recent_today:
+        if g_name not in last_status_by_group:
+            last_status_by_group[g_name] = g_status
+
+    ranked = sorted(
+        eligible,
+        key=lambda item: (
+            today_counts.get(item['name'] if isinstance(item, dict) else item, 0),
+            total_counts.get(item['name'] if isinstance(item, dict) else item, 0),
+            (item['name'] if isinstance(item, dict) else item).casefold(),
+        ),
+    )
+
+    healthy_counts = [
+        today_counts.get(item['name'] if isinstance(item, dict) else item, 0)
+        for item in ranked
+        if last_status_by_group.get(item['name'] if isinstance(item, dict) else item)
+        != PublicationDeliveryStatus.FAILED
+    ]
+    baseline = (
+        min(healthy_counts)
+        if healthy_counts
+        else today_counts.get(ranked[0]['name'] if isinstance(ranked[0], dict) else ranked[0], 0)
+    )
+
+    priority_groups = []
+    overflow_groups = []
+    for item in ranked:
+        g_name = item['name'] if isinstance(item, dict) else item
+        if today_counts.get(g_name, 0) <= baseline + max_lead:
+            priority_groups.append(item)
+        else:
+            overflow_groups.append(item)
+
+    if not priority_groups:
+        return ranked, []
+    return priority_groups, overflow_groups
+
+
 def publish_offer_in_whatsapp(browser, whatsapp_tab, target_groups, message, affiliate_url, inbox=None, publication=None):
     """
-    Publica a oferta nos grupos de destino autorizados, aplicando controle de duplicidade
-    por grupo e registrando individualmente cada envio no modelo PublicationDelivery.
+    Publica a oferta nos grupos de destino autorizados, aplicando distribuição equilibrada
+    entre grupos, controle de duplicidade por grupo e registro individual no PublicationDelivery.
     """
     from .models import PublicationDelivery, PublicationDeliveryStatus
 
     if not target_groups:
         raise AffiliateAutomationError('Nenhum grupo de destino configurado para publicação.')
 
+    priority_groups, overflow_groups = select_balanced_target_groups(target_groups)
     deliveries_result = []
 
-    for item in target_groups:
-        group_name = item['name'] if isinstance(item, dict) else item
-        group_jid = item.get('jid') if isinstance(item, dict) else None
+    def _dispatch_batch(batch):
+        batch_success = 0
+        for item in batch:
+            group_name = item['name'] if isinstance(item, dict) else item
+            group_jid = item.get('jid') if isinstance(item, dict) else None
 
-        # Controle de duplicidade: verificar se este produto já foi enviado com sucesso a este grupo
-        if publication and PublicationDelivery.objects.filter(
-            publication=publication,
-            target_group_name=group_name,
-            status=PublicationDeliveryStatus.SUCCESS,
-        ).exists():
-            logger.info('Oferta já enviada anteriormente para “%s”; pulando para evitar duplicidade.', group_name)
-            continue
+            if is_blocked_send_group(group_name):
+                logger.warning('Envio bloqueado por segurança para o grupo “%s”; pulando.', group_name)
+                continue
 
-        try:
-            _publish_offer_to_group(
-                browser,
-                whatsapp_tab,
-                group_name,
-                message,
-                affiliate_url,
-            )
-            if publication:
-                PublicationDelivery.objects.create(
-                    publication=publication,
-                    incoming_offer=inbox,
-                    target_group_name=group_name,
-                    target_group_jid=group_jid,
-                    affiliate_url=affiliate_url,
-                    status=PublicationDeliveryStatus.SUCCESS,
-                    error_message='',
-                    sent_at=timezone.now(),
+            # Controle de duplicidade: verificar se este produto já foi enviado com sucesso a este grupo
+            if publication and PublicationDelivery.objects.filter(
+                publication=publication,
+                target_group_name=group_name,
+                status=PublicationDeliveryStatus.SUCCESS,
+            ).exists():
+                logger.info('Oferta já enviada anteriormente para “%s”; pulando para evitar duplicidade.', group_name)
+                continue
+
+            try:
+                _publish_offer_to_group(
+                    browser,
+                    whatsapp_tab,
+                    group_name,
+                    message,
+                    affiliate_url,
                 )
-            deliveries_result.append({'group': group_name, 'success': True})
-            time.sleep(2)
-        except Exception as exc:
-            logger.exception('Falha ao enviar oferta para o grupo “%s”.', group_name)
-            if publication:
-                PublicationDelivery.objects.create(
-                    publication=publication,
-                    incoming_offer=inbox,
-                    target_group_name=group_name,
-                    target_group_jid=group_jid,
-                    affiliate_url=affiliate_url,
-                    status=PublicationDeliveryStatus.FAILED,
-                    error_message=str(exc)[:500],
-                    sent_at=timezone.now(),
-                )
-            deliveries_result.append({'group': group_name, 'success': False, 'error': str(exc)})
+                if publication:
+                    PublicationDelivery.objects.create(
+                        publication=publication,
+                        incoming_offer=inbox,
+                        target_group_name=group_name,
+                        target_group_jid=group_jid,
+                        affiliate_url=affiliate_url,
+                        status=PublicationDeliveryStatus.SUCCESS,
+                        error_message='',
+                        sent_at=timezone.now(),
+                    )
+                deliveries_result.append({'group': group_name, 'success': True})
+                batch_success += 1
+                time.sleep(2)
+            except Exception as exc:
+                logger.exception('Falha ao enviar oferta para o grupo “%s”.', group_name)
+                if publication:
+                    PublicationDelivery.objects.create(
+                        publication=publication,
+                        incoming_offer=inbox,
+                        target_group_name=group_name,
+                        target_group_jid=group_jid,
+                        affiliate_url=affiliate_url,
+                        status=PublicationDeliveryStatus.FAILED,
+                        error_message=str(exc)[:500],
+                        sent_at=timezone.now(),
+                    )
+                deliveries_result.append({'group': group_name, 'success': False, 'error': str(exc)})
+        return batch_success
+
+    sent_in_priority = _dispatch_batch(priority_groups)
+    if sent_in_priority == 0 and overflow_groups:
+        logger.info(
+            'Nenhum envio concluído no lote prioritário equilibrado; tentando demais grupos em ordem de menor volume.'
+        )
+        _dispatch_batch(overflow_groups)
 
     if not deliveries_result:
         return 'Todos os grupos autorizados já haviam recebido esta oferta anteriormente.'
@@ -1508,6 +1795,13 @@ def process_offer(inbox, browser, whatsapp_tab, affiliate_tab, target_groups, pu
             try:
                 browser.switch_to.window(working_tab)
                 details = resolve_product_page(browser, inbox.source_link, inbox.original_message)
+                quality_ok, quality_reason = evaluate_offer_quality(details, inbox.coupon)
+                if not quality_ok:
+                    inbox.status = IncomingOfferStatus.SKIPPED
+                    inbox.error_message = quality_reason
+                    inbox.processed_at = timezone.now()
+                    inbox.save(update_fields=['status', 'error_message', 'processed_at', 'updated_at'])
+                    return quality_reason
                 affiliate_url = generate_affiliate_link(browser, details['product_url'])
                 validate_affiliate_link(
                     browser,

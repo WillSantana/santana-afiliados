@@ -9,7 +9,7 @@ GROUP_JID_PATTERN = re.compile(r'^[\d-]+@g\.us$')
 
 def get_whatsapp_groups():
     groups = list(
-        WhatsAppGroup.objects.values('id', 'name', 'jid', 'role').order_by('role', 'name')
+        WhatsAppGroup.objects.values('id', 'name', 'jid', 'role', 'send_authorized').order_by('role', 'name')
     )
     if groups or WhatsAppGroupConfiguration.objects.filter(pk=1).exists():
         return groups
@@ -27,6 +27,7 @@ def get_whatsapp_groups():
             'name': source_name,
             'jid': None,
             'role': WhatsAppGroupRole.SOURCE,
+            'send_authorized': False,
         })
     if target_name:
         defaults.append({
@@ -34,6 +35,7 @@ def get_whatsapp_groups():
             'name': target_name,
             'jid': target_jid,
             'role': WhatsAppGroupRole.DESTINATION,
+            'send_authorized': True,
         })
     return defaults
 
@@ -56,4 +58,5 @@ def get_destination_groups(groups=None):
     return [
         group for group in groups
         if group['role'] in (WhatsAppGroupRole.DESTINATION, WhatsAppGroupRole.BOTH)
+        and group.get('send_authorized', False)
     ]

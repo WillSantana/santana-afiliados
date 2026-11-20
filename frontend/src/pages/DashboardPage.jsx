@@ -29,6 +29,8 @@ export default function DashboardPage({ onNavigateTab }) {
   const botStatus = data?.bot_status || {};
   const metrics = data?.metrics || {};
   const groups = data?.groups || {};
+  const postsByGroup = data?.posts_by_group || [];
+  const maxGroupPosts = Math.max(1, ...postsByGroup.map((item) => item.total_success || 0));
 
   return (
     <div style={{ paddingBottom: '3rem' }}>
@@ -229,6 +231,97 @@ export default function DashboardPage({ onNavigateTab }) {
             accent="green"
           />
         </div>
+      </div>
+
+      {/* Posts por Grupo */}
+      <div style={{ background: 'white', borderRadius: 'var(--radius-md)', padding: '1.25rem', border: '1px solid var(--gray-200)', marginBottom: '1.5rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.85rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+          <div>
+            <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 700 }}>Posts por Grupo</h3>
+            <p style={{ margin: '0.2rem 0 0 0', fontSize: '0.78rem', color: 'var(--gray-500)' }}>
+              Total de ofertas enviadas com sucesso em cada grupo (hoje e acumulado).
+            </p>
+          </div>
+          <span style={{ fontSize: '0.78rem', fontWeight: 600, color: '#059669', background: '#ecfdf5', padding: '0.25rem 0.6rem', borderRadius: '999px' }}>
+            {postsByGroup.length} grupo(s)
+          </span>
+        </div>
+        {!postsByGroup.length ? (
+          <p style={{ color: 'var(--gray-500)', fontSize: '0.85rem', margin: 0 }}>Nenhum envio registrado por grupo ainda.</p>
+        ) : (
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
+              <thead>
+                <tr style={{ textAlign: 'left', borderBottom: '1px solid var(--gray-200)', color: 'var(--gray-500)' }}>
+                  <th style={{ padding: '0.5rem 0.6rem' }}>Grupo</th>
+                  <th style={{ padding: '0.5rem 0.6rem', textAlign: 'center', width: '90px' }}>Hoje</th>
+                  <th style={{ padding: '0.5rem 0.6rem', width: '210px' }}>Total Enviados</th>
+                  <th style={{ padding: '0.5rem 0.6rem', textAlign: 'center', width: '90px' }}>Falhas</th>
+                  <th style={{ padding: '0.5rem 0.6rem', textAlign: 'right', width: '130px' }}>Último Envio</th>
+                </tr>
+              </thead>
+              <tbody>
+                {postsByGroup.map((row) => {
+                  const barWidth = Math.round(((row.total_success || 0) / maxGroupPosts) * 100);
+                  return (
+                    <tr key={row.group_name} style={{ borderBottom: '1px solid var(--gray-100)' }}>
+                      <td style={{ padding: '0.55rem 0.6rem', fontWeight: 600, color: 'var(--gray-900)' }}>
+                        {row.group_name}
+                      </td>
+                      <td style={{ padding: '0.55rem 0.6rem', textAlign: 'center' }}>
+                        <span style={{
+                          display: 'inline-block',
+                          minWidth: '28px',
+                          padding: '0.15rem 0.45rem',
+                          borderRadius: '999px',
+                          fontSize: '0.75rem',
+                          fontWeight: 700,
+                          background: row.today_success > 0 ? '#e0f2fe' : '#f1f5f9',
+                          color: row.today_success > 0 ? '#0369a1' : '#64748b',
+                        }}>
+                          {row.today_success}
+                        </span>
+                      </td>
+                      <td style={{ padding: '0.55rem 0.6rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                          <span style={{ fontWeight: 800, color: '#059669', minWidth: '28px' }}>
+                            {row.total_success}
+                          </span>
+                          <div style={{ flex: 1, height: '8px', background: '#f1f5f9', borderRadius: '999px', overflow: 'hidden' }}>
+                            <div style={{
+                              width: `${barWidth}%`,
+                              height: '100%',
+                              background: '#10b981',
+                              borderRadius: '999px',
+                            }} />
+                          </div>
+                        </div>
+                      </td>
+                      <td style={{ padding: '0.55rem 0.6rem', textAlign: 'center' }}>
+                        <span style={{
+                          fontWeight: 700,
+                          color: row.total_failed > 0 ? '#dc2626' : '#94a3b8',
+                        }}>
+                          {row.total_failed}
+                        </span>
+                      </td>
+                      <td style={{ padding: '0.55rem 0.6rem', textAlign: 'right', color: 'var(--gray-500)' }}>
+                        {row.last_sent_at
+                          ? new Date(row.last_sent_at).toLocaleString([], {
+                            day: '2-digit',
+                            month: '2-digit',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })
+                          : '—'}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* Tabelas de Visão Rápida */}

@@ -593,6 +593,7 @@ class IncomingOfferPersistenceTests(TestCase):
             name='Santana_Indica',
             jid='123@g.us',
             role=WhatsAppGroupRole.DESTINATION,
+            send_authorized=True,
         )
         WhatsAppGroupConfiguration.objects.create(pk=1)
         request = APIRequestFactory().get('/api/publications/incoming-offers/')
@@ -616,8 +617,9 @@ class IncomingOfferPersistenceTests(TestCase):
             'groups': [
                 {'name': 'Origem 1', 'jid': '', 'role': 'source'},
                 {'name': 'Origem 2', 'jid': '', 'role': 'source'},
-                {'name': 'Destino 1', 'jid': '111@g.us', 'role': 'destination'},
-                {'name': 'Destino 2', 'jid': '222@g.us', 'role': 'destination'},
+                {'name': 'Destino 1', 'jid': '111@g.us', 'role': 'destination', 'send_authorized': True},
+                {'name': 'Destino 2', 'jid': '222@g.us', 'role': 'destination', 'send_authorized': True},
+                {'name': 'Destino Novo Sem Autorizacao', 'jid': '333@g.us', 'role': 'destination'},
             ],
         }
         request = APIRequestFactory().put(
@@ -632,7 +634,7 @@ class IncomingOfferPersistenceTests(TestCase):
         self.assertEqual(response.data['source_groups'], ['Origem 1', 'Origem 2'])
         self.assertEqual(response.data['source_group'], 'Origem 1')
         self.assertEqual(response.data['target_groups'], ['Destino 1', 'Destino 2'])
-        self.assertEqual(WhatsAppGroup.objects.count(), 4)
+        self.assertEqual(WhatsAppGroup.objects.count(), 5)
         self.assertTrue(WhatsAppGroupConfiguration.objects.filter(pk=1).exists())
 
         empty_request = APIRequestFactory().put(
@@ -687,3 +689,118 @@ class IncomingOfferPersistenceTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertFalse(response.data['dispatched'])
         self.assertIn('Não há oferta aprovada', response.data['message'])
+
+    def test_group_match_and_blocked_send_groups(self):
+        from apps.publications.affiliate_watcher import _is_group_match, is_blocked_send_group
+
+        self.assertFalse(_is_group_match('Geral', 'Catira Geral Nova Contagem'))
+        self.assertFalse(_is_group_match('STI Geral', 'Catira Geral Nova Contagem'))
+        self.assertFalse(_is_group_match('Vendas', 'Grupo de Vendas'))
+        self.assertTrue(_is_group_match('Catira Geral Nova Contagem', 'Catira Geral Nova Contagem'))
+        self.assertTrue(_is_group_match('COMPRAS & VENDAS PRESENCIAL & ONLINE', 'COMPRAS & VENDAS PRESENCIAL'))
+
+        self.assertTrue(is_blocked_send_group('Geral'))
+        self.assertTrue(is_blocked_send_group('STI Geral'))
+        self.assertFalse(is_blocked_send_group('Catira Geral Nova Contagem'))
+
+    def test_whatsapp_group_configuration_rejects_blocked_destination(self):
+        request = APIRequestFactory().put(
+            '/api/publications/whatsapp-groups/',
+            {
+                'groups': [
+                    {'name': 'STI Geral', 'jid': '999@g.us', 'role': 'destination', 'send_authorized': True},
+                ],
+            },
+            format='json',
+        )
+        response = PublicationViewSet.as_view({'put': 'whatsapp_groups'})(request)
+        self.assertEqual(response.status_code, 400)
+
+    def test_balanced_target_groups_prioritizes_groups_with_fewer_posts(self):
+        from apps.publications.affiliate_watcher import select_balanced_target_groups
+        from apps.publications.models import PublicationDelivery, PublicationDeliveryStatus
+
+        product = ProductOffer.objects.create(
+            item_id='MLB999000111',
+            category='other',
+            title='Produto Balanceamento',
+            price='99.90',
+            product_url='https://www.mercadolivre.com.br/p/MLB999000111',
+            affiliate_url='https://meli.la/Bal123',
+            status=ProductStatus.APPROVED,
+        )
+        pub = Publication.objects.create(
+            product=product,
+            title='Oferta',
+            message_text='Texto',
+            status=PublicationStatus.APPROVED,
+        )
+        for _ in range(5):
+            PublicationDelivery.objects.create(
+                publication=pub,
+                target_group_name='Grupo Cheio',
+                affiliate_url='https://meli.la/Bal123',
+                status=PublicationDeliveryStatus.SUCCESS,
+            )
+        PublicationDelivery.objects.create(
+            publication=pub,
+            target_group_name='Grupo Medio',
+            affiliate_url='https://meli.la/Bal123',
+            status=PublicationDeliveryStatus.SUCCESS,
+        )
+
+        priority, overflow = select_balanced_target_groups(
+            ['Grupo Cheio', 'Grupo Medio', 'Grupo Novo'],
+            max_lead=2,
+        )
+        self.assertEqual(priority, ['Grupo Novo', 'Grupo Medio'])
+        self.assertEqual(overflow, ['Grupo Cheio'])
+
+    def test_offer_quality_filter_and_queue_prioritization(self):
+        from apps.publications.affiliate_watcher import (
+            evaluate_offer_quality,
+            select_next_pending_offer,
+        )
+
+        # Sem desconto e sem cupom -> bloqueia
+        ok, reason = evaluate_offer_quality({'price': 80.0, 'original_price': None, 'rating': 4.8})
+        self.assertFalse(ok)
+        self.assertIn('sem desconto', reason.lower())
+
+        # Desconto baixo (10%) sem cupom -> bloqueia
+        ok, reason = evaluate_offer_quality({'price': 90.0, 'original_price': 100.0, 'rating': 4.8})
+        self.assertFalse(ok)
+        self.assertIn('10% off', reason.lower())
+
+        # Preço abaixo de R$ 20 -> bloqueia mesmo com desconto
+        ok, reason = evaluate_offer_quality({'price': 15.0, 'original_price': 30.0, 'rating': 4.8})
+        self.assertFalse(ok)
+        self.assertIn('abaixo do mínimo', reason.lower())
+
+        # Nota abaixo de 4.0 -> bloqueia
+        ok, reason = evaluate_offer_quality({'price': 100.0, 'original_price': 150.0, 'rating': 3.5})
+        self.assertFalse(ok)
+        self.assertIn('avaliação', reason.lower())
+
+        # 20% OFF + preço >= 20 + nota >= 4.0 -> aprova
+        ok, _ = evaluate_offer_quality({'price': 80.0, 'original_price': 100.0, 'rating': 4.7})
+        self.assertTrue(ok)
+
+        # Sem desconto mas com cupom -> aprova
+        ok, _ = evaluate_offer_quality({'price': 80.0, 'original_price': None, 'rating': None}, coupon='MELI10')
+        self.assertTrue(ok)
+
+        # Fila prioriza maior % OFF / cupom
+        low = IncomingAffiliateOffer.objects.create(
+            source_link='https://meli.la/Low1',
+            source_group='Origem',
+            original_message='Confira este produto',
+        )
+        best = IncomingAffiliateOffer.objects.create(
+            source_link='https://meli.la/Best1',
+            source_group='Origem',
+            original_message='Oferta relâmpago 45% OFF!',
+            coupon='PROMO10',
+        )
+        picked = select_next_pending_offer(IncomingAffiliateOffer.objects.filter(pk__in=[low.pk, best.pk]))
+        self.assertEqual(picked.pk, best.pk)
