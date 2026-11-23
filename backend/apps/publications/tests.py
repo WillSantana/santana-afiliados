@@ -866,3 +866,71 @@ class IncomingOfferPersistenceTests(TestCase):
         self.assertIn('NA AMAZON', amazon_msg)
         self.assertIn('30% OFF', amazon_msg)
         self.assertIn('https://amzn.to/4xYzAbC', amazon_msg)
+
+    def test_store_and_group_per_store_balancing(self):
+        from apps.publications.affiliate_watcher import (
+            select_balanced_target_groups,
+            select_next_pending_offer,
+        )
+        from apps.publications.models import PublicationDelivery, PublicationDeliveryStatus
+        from apps.publications.product_urls import STORE_AMAZON, STORE_MERCADOLIVRE
+
+        # 1. Fila prioriza loja com menos envios publicados hoje (Amazon 0 vs ML 2)
+        for idx in range(2):
+            IncomingAffiliateOffer.objects.create(
+                source_link=f'https://meli.la/PubML{idx}',
+                source_group='Origem',
+                store=STORE_MERCADOLIVRE,
+                status=IncomingOfferStatus.PUBLISHED,
+                published_at=timezone.now(),
+            )
+        pending_ml = IncomingAffiliateOffer.objects.create(
+            source_link='https://meli.la/PendML',
+            source_group='Origem',
+            store=STORE_MERCADOLIVRE,
+            original_message='50% OFF!',
+        )
+        pending_amz = IncomingAffiliateOffer.objects.create(
+            source_link='https://amzn.to/PendAMZ',
+            source_group='Origem',
+            store=STORE_AMAZON,
+            original_message='20% OFF!',
+        )
+        picked = select_next_pending_offer(
+            IncomingAffiliateOffer.objects.filter(pk__in=[pending_ml.pk, pending_amz.pk])
+        )
+        self.assertEqual(picked.pk, pending_amz.pk)
+
+        # 2. Equilíbrio por grupo é contado separadamente por loja
+        prod_ml = ProductOffer.objects.create(
+            item_id='MLB888111222',
+            store=STORE_MERCADOLIVRE,
+            category='other',
+            title='Prod ML',
+            price='100.00',
+            product_url='https://www.mercadolivre.com.br/p/MLB888111222',
+            affiliate_url='https://meli.la/ML888',
+            status=ProductStatus.APPROVED,
+        )
+        pub_ml = Publication.objects.create(
+            product=prod_ml,
+            title='ML',
+            message_text='ML',
+            status=PublicationStatus.APPROVED,
+        )
+        for _ in range(5):
+            PublicationDelivery.objects.create(
+                publication=pub_ml,
+                target_group_name='Grupo A',
+                affiliate_url='https://meli.la/ML888',
+                status=PublicationDeliveryStatus.SUCCESS,
+            )
+        # No ML, Grupo A tem 5 e Grupo B tem 0 -> prioriza Grupo B
+        prio_ml, over_ml = select_balanced_target_groups(['Grupo A', 'Grupo B'], store=STORE_MERCADOLIVRE, max_lead=1)
+        self.assertEqual(prio_ml, ['Grupo B'])
+        self.assertEqual(over_ml, ['Grupo A'])
+
+        # Na Amazon, ambos têm 0 -> ambos entram igualmente!
+        prio_amz, over_amz = select_balanced_target_groups(['Grupo A', 'Grupo B'], store=STORE_AMAZON, max_lead=1)
+        self.assertEqual(prio_amz, ['Grupo A', 'Grupo B'])
+        self.assertEqual(over_amz, [])

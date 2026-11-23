@@ -1125,12 +1125,34 @@ def _offer_queue_priority(offer):
 
 def select_next_pending_offer(queryset):
     """
-    Seleciona a oferta mais promissora da fila (priorizando maiores descontos e cupons).
+    Seleciona a próxima oferta da fila equilibrando a quantidade entre lojas
+    (priorizando a loja com menos envios hoje) e, dentro dela, maiores descontos e cupons.
     """
+    from django.db.models import Count
+
     candidates = list(queryset.select_related('product').order_by('received_at', 'id')[:50])
     if not candidates:
         return None
-    candidates.sort(key=lambda item: (-_offer_queue_priority(item), item.received_at, item.id))
+
+    today = timezone.localdate()
+    store_counts_rows = (
+        IncomingAffiliateOffer.objects.filter(
+            status__in=(IncomingOfferStatus.PUBLISHED, IncomingOfferStatus.UNCERTAIN),
+            published_at__date=today,
+        )
+        .values('store')
+        .annotate(total=Count('id'))
+    )
+    store_today_counts = {row['store']: row['total'] for row in store_counts_rows}
+
+    candidates.sort(
+        key=lambda item: (
+            store_today_counts.get(item.store or STORE_MERCADOLIVRE, 0),
+            -_offer_queue_priority(item),
+            item.received_at,
+            item.id,
+        )
+    )
     return candidates[0]
 
 
@@ -1556,18 +1578,18 @@ def _publish_offer_to_group(browser, whatsapp_tab, target_group, message, affili
     return True
 
 
-def select_balanced_target_groups(target_groups, max_lead=None):
+def select_balanced_target_groups(target_groups, store=None, max_lead=None):
     """
     Ordena os grupos destino do menor para o maior número de envios bem-sucedidos hoje
-    e prioriza os grupos que estão até `max_lead` envios acima do menor grupo saudável,
-    distribuindo as publicações de forma equilibrada entre todos os grupos.
+    (separado por loja quando `store` for informado) e prioriza os grupos que estão até
+    `max_lead` envios acima do menor grupo saudável, mantendo equilíbrio igual por grupo e por loja.
     Retorna (priority_groups, overflow_groups).
     """
     from django.db.models import Count, Q
     from .models import PublicationDelivery, PublicationDeliveryStatus
 
     if max_lead is None:
-        max_lead = max(0, int(getattr(settings, 'AFFILIATE_BOT_MAX_GROUP_LEAD', 2)))
+        max_lead = max(0, int(getattr(settings, 'AFFILIATE_BOT_MAX_GROUP_LEAD', 1)))
 
     eligible = []
     for item in target_groups:
@@ -1582,11 +1604,17 @@ def select_balanced_target_groups(target_groups, max_lead=None):
     today = timezone.localdate()
     eligible_names = [item['name'] if isinstance(item, dict) else item for item in eligible]
 
-    counts_rows = (
-        PublicationDelivery.objects.filter(
-            target_group_name__in=eligible_names,
-            status=PublicationDeliveryStatus.SUCCESS,
+    deliveries_qs = PublicationDelivery.objects.filter(
+        target_group_name__in=eligible_names,
+    )
+    if store:
+        deliveries_qs = deliveries_qs.filter(
+            Q(incoming_offer__store=store)
+            | Q(incoming_offer__isnull=True, publication__product__store=store)
         )
+
+    counts_rows = (
+        deliveries_qs.filter(status=PublicationDeliveryStatus.SUCCESS)
         .values('target_group_name')
         .annotate(
             today_count=Count('id', filter=Q(sent_at__date=today)),
@@ -1598,10 +1626,7 @@ def select_balanced_target_groups(target_groups, max_lead=None):
 
     last_status_by_group = {}
     recent_today = (
-        PublicationDelivery.objects.filter(
-            target_group_name__in=eligible_names,
-            sent_at__date=today,
-        )
+        deliveries_qs.filter(sent_at__date=today)
         .order_by('-sent_at', '-id')
         .values_list('target_group_name', 'status')
     )
@@ -1654,7 +1679,13 @@ def publish_offer_in_whatsapp(browser, whatsapp_tab, target_groups, message, aff
     if not target_groups:
         raise AffiliateAutomationError('Nenhum grupo de destino configurado para publicação.')
 
-    priority_groups, overflow_groups = select_balanced_target_groups(target_groups)
+    offer_store = None
+    if inbox is not None and getattr(inbox, 'store', None):
+        offer_store = inbox.store
+    elif publication is not None and getattr(publication, 'product', None):
+        offer_store = getattr(publication.product, 'store', None)
+
+    priority_groups, overflow_groups = select_balanced_target_groups(target_groups, store=offer_store)
     deliveries_result = []
 
     def _dispatch_batch(batch):
