@@ -804,3 +804,23 @@ class IncomingOfferPersistenceTests(TestCase):
         )
         picked = select_next_pending_offer(IncomingAffiliateOffer.objects.filter(pk__in=[low.pk, best.pk]))
         self.assertEqual(picked.pk, best.pk)
+
+    def test_build_incoming_offer_message_format(self):
+        from apps.publications.affiliate_watcher import build_incoming_offer_message
+
+        msg = build_incoming_offer_message(
+            {
+                'title': 'Fone Bluetooth Baseus',
+                'price': 89.90,
+                'original_price': 199.90,
+                'rating': 4.8,
+            },
+            'MELI10',
+            'https://meli.la/Teste123',
+        )
+        self.assertIn('SUPER OFERTA', msg)
+        self.assertIn('55% OFF', msg)
+        self.assertIn('Economia de R$ 110,00', msg)
+        self.assertIn('4,8 / 5,0', msg)
+        self.assertIn('MELI10', msg)
+        self.assertIn('https://meli.la/Teste123', msg)

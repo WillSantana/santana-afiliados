@@ -1416,33 +1416,55 @@ def _publish_offer_to_group(browser, whatsapp_tab, target_group, message, affili
     except Exception:
         pass
 
-    composer = WebDriverWait(browser, 20).until(_message_composer)
-    _clear_message_composer(browser)
-    composer = _message_composer(browser)
-
-    # Digita o link primeiro com espaço para o WhatsApp tentar carregar prévia
-    try:
-        composer.click()
-        composer.send_keys(affiliate_url, Keys.SPACE)
-        # Aguarda brevemente a prévia visual sem travar se não carregar
-        try:
-            WebDriverWait(browser, 4, poll_frequency=0.5).until(_has_link_preview_image)
-        except TimeoutException:
-            pass
+    def _type_full_message():
         _clear_message_composer(browser)
-        composer = _message_composer(browser)
-    except Exception as exc:
-        logger.warning('Tentativa de prévia inicial ignorada: %s', exc)
+        comp = _message_composer(browser)
+        if not comp:
+            comp = WebDriverWait(browser, 15).until(_message_composer)
+        comp.click()
+        lines = message.splitlines()
+        for index, line in enumerate(lines):
+            if line:
+                comp.send_keys(line)
+            if index < len(lines) - 1:
+                comp.send_keys(Keys.SHIFT, Keys.ENTER)
+        # Espaço final ajuda o WhatsApp Web a disparar a prévia do link
+        comp.send_keys(Keys.SPACE)
+        return comp
 
-    # Digita a mensagem completa formatada
-    for index, line in enumerate(message.splitlines()):
-        if line:
-            composer.send_keys(line)
-        if index < len(message.splitlines()) - 1:
-            composer.send_keys(Keys.SHIFT, Keys.ENTER)
+    composer = WebDriverWait(browser, 20).until(_message_composer)
+    _type_full_message()
 
-    # Aguarda 2 segundos para o WhatsApp renderizar o preview da mensagem antes de enviar
-    time.sleep(2)
+    # Aguarda até 12s pela prévia com imagem no WhatsApp Web; se não carregar, tenta mais uma vez
+    preview_ready = False
+    try:
+        WebDriverWait(browser, 12, poll_frequency=0.5).until(_has_link_preview_image)
+        preview_ready = True
+    except TimeoutException:
+        logger.warning('Prévia de imagem não carregou na 1ª tentativa para “%s”; tentando novamente.', target_group)
+        try:
+            _clear_message_composer(browser)
+            comp = _message_composer(browser)
+            if comp:
+                comp.click()
+                comp.send_keys(affiliate_url, Keys.SPACE)
+                try:
+                    WebDriverWait(browser, 8, poll_frequency=0.5).until(_has_link_preview_image)
+                except TimeoutException:
+                    pass
+            _type_full_message()
+            WebDriverWait(browser, 10, poll_frequency=0.5).until(_has_link_preview_image)
+            preview_ready = True
+        except TimeoutException:
+            preview_ready = False
+
+    if not preview_ready or not _has_link_preview_image(browser):
+        _clear_message_composer(browser)
+        raise AffiliateAutomationError(
+            'Prévia de imagem não carregou no WhatsApp; envio cancelado para não enviar apenas texto.'
+        )
+
+    time.sleep(1)
 
     active_group = _current_group_name(browser)
     if is_blocked_send_group(active_group):
@@ -1650,26 +1672,53 @@ def publish_offer_in_whatsapp(browser, whatsapp_tab, target_groups, message, aff
 def build_incoming_offer_message(details, coupon, affiliate_url):
     price_val = float(details['price'])
     price = f'{price_val:,.2f}'.replace(',', 'X').replace('.', ',').replace('X', '.')
-    lines = [
-        f'🔥 *{details["title"]}*',
-        '',
-        'Oferta imperdível no Mercado Livre!',
-        'Toque no link abaixo para conferir e garantir a sua:',
-        '',
-    ]
     original_val = details.get('original_price')
+    discount_pct = 0
+    original = ''
+    savings = ''
     if original_val and float(original_val) > price_val:
         original_float = float(original_val)
         original = f'{original_float:,.2f}'.replace(',', 'X').replace('.', ',').replace('X', '.')
-        discount_pct = round(((original_float - price_val) / original_float) * 100)
-        lines.append(f'✅ ~De R$ {original}~ → *Por R$ {price}*')
-        if discount_pct > 0:
-            lines.append(f'🔻 {discount_pct}% OFF')
+        savings_float = original_float - price_val
+        savings = f'{savings_float:,.2f}'.replace(',', 'X').replace('.', ',').replace('X', '.')
+        discount_pct = round((savings_float / original_float) * 100)
+
+    if discount_pct >= 35:
+        headline = f'🚨 *SUPER OFERTA — {discount_pct}% OFF NO MERCADO LIVRE!*'
+    elif discount_pct >= 15:
+        headline = f'🔥 *ACHADINHO — {discount_pct}% OFF NO MERCADO LIVRE!*'
+    elif coupon:
+        headline = '🎟️ *OFERTA COM CUPOM NO MERCADO LIVRE!*'
     else:
-        lines.append(f'✅ *Por R$ {price}*')
+        headline = '🚨 *OFERTA IMPERDÍVEL NO MERCADO LIVRE!*'
+
+    lines = [
+        headline,
+        '',
+        f'*{details["title"]}*',
+        '',
+    ]
+    if original and discount_pct > 0:
+        lines.append(f'📉 ~De R$ {original}~')
+        lines.append(f'💥 *Por apenas R$ {price}*')
+        lines.append(f'💰 *Economia de R$ {savings} ({discount_pct}% OFF)*')
+    else:
+        lines.append(f'💥 *Por apenas R$ {price}*')
+
+    rating = details.get('rating')
+    if rating is not None and float(rating) >= 4.0:
+        rating_str = f'{float(rating):.1f}'.replace('.', ',')
+        lines.append(f'⭐ Avaliação: *{rating_str} / 5,0*')
+
     if coupon:
-        lines.append(f'🎟️ Cupom: {coupon}')
-    lines.append(f'🛒 {affiliate_url}')
+        lines.append(f'🎟️ *Cupom:* {coupon}')
+
+    lines.extend([
+        '',
+        '⚡ _Estoque limitado — preço sujeito a alteração a qualquer momento._',
+        '👉 *Garanta o seu aqui:*',
+        f'🛒 {affiliate_url}',
+    ])
     return '\n'.join(lines)
 
 
