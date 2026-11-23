@@ -232,6 +232,52 @@ class PublicationViewSet(viewsets.ModelViewSet):
             key=lambda item: (-item['total_success'], -item['today_success'], item['group_name'].casefold()),
         )
 
+        from .models import StoreClickStats
+        from .product_urls import STORE_AMAZON, STORE_MERCADOLIVRE, get_store_display_name
+        click_stats_map = {
+            row.store: row for row in StoreClickStats.objects.all()
+        }
+        store_metrics = []
+        for store_key in (STORE_MERCADOLIVRE, STORE_AMAZON):
+            store_offers = all_offers.filter(store=store_key)
+            store_counts = Counter(store_offers.values_list('status', flat=True))
+            store_incoming_aff = set(
+                store_offers.exclude(affiliate_url='').values_list('affiliate_url', flat=True)
+            )
+            store_product_aff = set(
+                ProductOffer.objects.filter(store=store_key)
+                .exclude(affiliate_url='')
+                .values_list('affiliate_url', flat=True)
+            )
+            store_deliveries_qs = PublicationDelivery.objects.filter(
+                Q(incoming_offer__store=store_key)
+                | Q(incoming_offer__isnull=True, publication__product__store=store_key)
+            )
+            click_row = click_stats_map.get(store_key)
+            store_metrics.append({
+                'store': store_key,
+                'label': get_store_display_name(store_key),
+                'offers_found': store_offers.count(),
+                'pending_offers': store_counts.get(IncomingOfferStatus.PENDING, 0),
+                'published_offers': store_counts.get(IncomingOfferStatus.PUBLISHED, 0),
+                'skipped_offers': store_counts.get(IncomingOfferStatus.SKIPPED, 0),
+                'affiliates_generated': len(store_incoming_aff | store_product_aff),
+                'deliveries_today': store_deliveries_qs.filter(
+                    status=PublicationDeliveryStatus.SUCCESS,
+                    sent_at__date=today,
+                ).count(),
+                'deliveries_total': store_deliveries_qs.filter(
+                    status=PublicationDeliveryStatus.SUCCESS,
+                ).count(),
+                'clicks_month': click_row.clicks_month if click_row else 0,
+                'clicks_synced_at': (
+                    click_row.last_synced_at.isoformat()
+                    if click_row and click_row.last_synced_at
+                    else None
+                ),
+                'clicks_error': click_row.sync_error if click_row else '',
+            })
+
         recent_deliveries = PublicationDelivery.objects.select_related('publication__product').order_by('-sent_at')[:20]
         recent_offers = all_offers.select_related('product').order_by('-received_at')[:15]
 
@@ -254,6 +300,7 @@ class PublicationViewSet(viewsets.ModelViewSet):
                 'deliveries_failed': deliveries_failed,
                 'deliveries_uncertain': deliveries_uncertain,
             },
+            'store_metrics': store_metrics,
             'groups': {
                 'sources': source_groups,
                 'destinations': dest_groups,
@@ -262,6 +309,19 @@ class PublicationViewSet(viewsets.ModelViewSet):
             'recent_deliveries': PublicationDeliverySerializer(recent_deliveries, many=True).data,
             'recent_offers': IncomingAffiliateOfferSerializer(recent_offers, many=True).data,
         })
+
+    @action(detail=False, methods=['post'], url_path='sync-clicks')
+    def sync_clicks(self, request):
+        from .click_sync import sync_official_click_stats
+
+        try:
+            results = sync_official_click_stats()
+            return Response({'ok': True, 'results': results})
+        except Exception as exc:
+            return Response(
+                {'ok': False, 'error': str(exc)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
     @action(detail=False, methods=['get'], url_path='deliveries')
     def deliveries(self, request):

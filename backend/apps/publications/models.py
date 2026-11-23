@@ -78,6 +78,12 @@ class IncomingAffiliateOffer(models.Model):
     """
     source_link = models.URLField(max_length=512, unique=True)
     source_group = models.CharField(max_length=128)
+    store = models.CharField(
+        max_length=32,
+        default='mercadolivre',
+        db_index=True,
+        verbose_name='Loja de origem',
+    )
     original_message = models.TextField(blank=True, verbose_name="Mensagem original recebida")
     coupon = models.CharField(max_length=80, blank=True)
     status = models.CharField(
@@ -273,4 +279,27 @@ class PublicationDelivery(models.Model):
 
     def __str__(self):
         return f'{self.target_group_name} - {self.status} ({self.sent_at})'
+
+
+class StoreClickStats(models.Model):
+    """
+    Métricas oficiais de cliques sincronizadas dos painéis de afiliados (Mercado Livre, Amazon, etc.).
+    """
+    store = models.CharField(
+        max_length=32,
+        unique=True,
+        verbose_name='Loja / Marketplace',
+    )
+    clicks_today = models.PositiveIntegerField(default=0, verbose_name='Cliques hoje')
+    clicks_month = models.PositiveIntegerField(default=0, verbose_name='Cliques no período/mês')
+    orders_month = models.PositiveIntegerField(default=0, verbose_name='Pedidos no período/mês')
+    last_synced_at = models.DateTimeField(null=True, blank=True, verbose_name='Última sincronização')
+    sync_error = models.TextField(blank=True, verbose_name='Último aviso de sincronização')
+
+    class Meta:
+        verbose_name = 'Cliques oficiais por loja'
+        verbose_name_plural = 'Cliques oficiais por loja'
+
+    def __str__(self):
+        return f'{self.store}: {self.clicks_month} cliques'
 

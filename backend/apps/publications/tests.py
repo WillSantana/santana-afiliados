@@ -818,9 +818,51 @@ class IncomingOfferPersistenceTests(TestCase):
             'MELI10',
             'https://meli.la/Teste123',
         )
-        self.assertIn('SUPER OFERTA', msg)
-        self.assertIn('55% OFF', msg)
-        self.assertIn('Economia de R$ 110,00', msg)
-        self.assertIn('4,8 / 5,0', msg)
+        self.assertIn('55% OFF NO MERCADO LIVRE', msg)
+        self.assertIn('~R$ 199,90~ → *R$ 89,90*', msg)
         self.assertIn('MELI10', msg)
         self.assertIn('https://meli.la/Teste123', msg)
+        self.assertLessEqual(len(msg.splitlines()), 6)
+
+    def test_multistore_amazon_link_extraction_and_copy(self):
+        from apps.publications.affiliate_watcher import (
+            build_incoming_offer_message,
+            extract_offer_links,
+        )
+        from apps.publications.product_urls import (
+            STORE_AMAZON,
+            STORE_MERCADOLIVRE,
+            detect_store_from_url,
+            extract_amazon_asin,
+            extract_amazon_item_id,
+        )
+
+        text = (
+            'Oferta ML https://meli.la/AbC123 e oferta Amazon '
+            'https://amzn.to/4xYzAbC e direto https://www.amazon.com.br/dp/B09G9FPHY6?ref=abc'
+        )
+        links = extract_offer_links(text)
+        self.assertIn('https://meli.la/AbC123', links)
+        self.assertIn('https://amzn.to/4xYzAbC', links)
+        self.assertIn('https://www.amazon.com.br/dp/B09G9FPHY6', links)
+
+        self.assertEqual(detect_store_from_url('https://meli.la/AbC123'), STORE_MERCADOLIVRE)
+        self.assertEqual(detect_store_from_url('https://amzn.to/4xYzAbC'), STORE_AMAZON)
+        self.assertEqual(extract_amazon_asin('https://www.amazon.com.br/dp/B09G9FPHY6?tag=abc-20'), 'B09G9FPHY6')
+        self.assertEqual(extract_amazon_item_id('https://www.amazon.com.br/dp/B09G9FPHY6'), 'AMZNB09G9FPHY6')
+        self.assertTrue(ProductOffer.is_valid_listing_permalink('https://www.amazon.com.br/dp/B09G9FPHY6'))
+
+        amazon_msg = build_incoming_offer_message(
+            {
+                'title': 'Echo Dot 5ª Geração',
+                'price': 299.00,
+                'original_price': 429.00,
+                'rating': 4.9,
+                'store': STORE_AMAZON,
+            },
+            '',
+            'https://amzn.to/4xYzAbC',
+        )
+        self.assertIn('NA AMAZON', amazon_msg)
+        self.assertIn('30% OFF', amazon_msg)
+        self.assertIn('https://amzn.to/4xYzAbC', amazon_msg)

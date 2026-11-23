@@ -83,6 +83,7 @@ export const api = {
     body: JSON.stringify({ group_id: groupId || undefined }),
   }),
   getIncomingOffers: () => request('/publications/incoming-offers/'),
+  syncAffiliateClicks: () => request('/publications/sync-clicks/', { method: 'POST' }),
   getDashboard: () => request('/publications/dashboard/'),
   getDeliveries: (params = {}) => {
     const query = new URLSearchParams(params).toString();

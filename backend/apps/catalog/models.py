@@ -35,6 +35,12 @@ class ProductOffer(models.Model):
         db_index=True,
         verbose_name="Identificador do anúncio"
     )
+    store = models.CharField(
+        max_length=32,
+        default='mercadolivre',
+        db_index=True,
+        verbose_name="Loja / Marketplace"
+    )
     title = models.CharField(
         max_length=255,
         verbose_name="Nome do produto"
@@ -148,7 +154,11 @@ class ProductOffer(models.Model):
             return False
 
         hostname = (parsed_url.hostname or '').lower()
-        if parsed_url.scheme != 'https' or not (
+        if parsed_url.scheme != 'https':
+            return False
+        if hostname == 'amazon.com.br' or hostname.endswith('.amazon.com.br'):
+            return bool(re.search(r'/(?:dp|gp/product|gp/aw/d|d)/[A-Z0-9]{10}(?:[/?#]|$)', parsed_url.path, re.IGNORECASE))
+        if not (
             hostname == 'mercadolivre.com.br'
             or hostname.endswith('.mercadolivre.com.br')
         ):

@@ -19,7 +19,16 @@ from .models import (
     Publication,
     PublicationStatus,
 )
-from .product_urls import extract_item_id, is_marketplace_url, parse_brl_price
+from .product_urls import (
+    STORE_AMAZON,
+    STORE_MERCADOLIVRE,
+    detect_store_from_url,
+    extract_item_id,
+    get_store_headline_suffix,
+    is_amazon_url,
+    is_marketplace_url,
+    parse_brl_price,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +37,10 @@ AFFILIATE_LINKBUILDER_URL = (
 )
 MELI_LINK_PATTERN = re.compile(
     r'https?://(?:[a-zA-Z0-9.-]+\.)?(?:meli\.la|mercadolivre\.com\.br|mercadolivre\.com)(?:/[^\s<>"]*)?',
+    re.IGNORECASE,
+)
+AMAZON_LINK_PATTERN = re.compile(
+    r'https?://(?:[a-zA-Z0-9.-]+\.)?(?:amzn\.to|a\.co|amazon\.com\.br)(?:/[^\s<>"]*)?',
     re.IGNORECASE,
 )
 MELI_SHORT_LINK_RE = re.compile(
@@ -75,6 +88,54 @@ def extract_mercadolivre_links(text):
         else:
             normalized = urlunsplit(('https', hostname, parsed.path.rstrip('/'), parsed.query, ''))
         links.add(normalized)
+    return links
+
+
+def get_enabled_stores():
+    raw = getattr(settings, 'AFFILIATE_BOT_ENABLED_STORES', 'mercadolivre,amazon')
+    stores = {
+        part.strip().lower()
+        for part in str(raw or '').split(',')
+        if part.strip()
+    }
+    return stores or {STORE_MERCADOLIVRE}
+
+
+def extract_amazon_links(text):
+    """
+    Identifica links curtos (amzn.to, a.co) e links de produto da Amazon Brasil.
+    """
+    if not text:
+        return set()
+    raw_matches = AMAZON_LINK_PATTERN.findall(text)
+    links = set()
+    for candidate in raw_matches:
+        cleaned = candidate.rstrip('.,;:!?)>]}"\'')
+        if not is_amazon_url(cleaned):
+            continue
+        try:
+            parsed = urlsplit(cleaned)
+        except Exception:
+            continue
+        hostname = (parsed.hostname or '').lower()
+        path = (parsed.path or '').rstrip('/')
+        if not path or path == '/':
+            continue
+        if hostname in ('amzn.to', 'www.amzn.to', 'a.co', 'www.a.co'):
+            normalized = urlunsplit(('https', hostname, path, '', ''))
+        else:
+            normalized = urlunsplit(('https', hostname, path, '', ''))
+        links.add(normalized)
+    return links
+
+
+def extract_offer_links(text):
+    enabled = get_enabled_stores()
+    links = set()
+    if STORE_MERCADOLIVRE in enabled:
+        links.update(extract_mercadolivre_links(text))
+    if STORE_AMAZON in enabled:
+        links.update(extract_amazon_links(text))
     return links
 
 
@@ -593,10 +654,10 @@ def read_group_offers(browser, group_name):
     for message in messages:
         try:
             text = (message.text or '').strip()
-            links = extract_mercadolivre_links(text)
+            links = extract_offer_links(text)
             for anchor in message.find_elements(By.CSS_SELECTOR, 'a[href]'):
                 href = anchor.get_attribute('href') or ''
-                links.update(extract_mercadolivre_links(href))
+                links.update(extract_offer_links(href))
             if not links:
                 continue
             coupon = extract_coupon(text)
@@ -620,6 +681,7 @@ def record_startup_baseline(offers_data, source_group):
             IncomingAffiliateOffer(
                 source_link=link,
                 source_group=source_group,
+                store=detect_store_from_url(link) or STORE_MERCADOLIVRE,
                 original_message=msg,
                 coupon=coupon,
                 status=IncomingOfferStatus.IGNORED,
@@ -691,6 +753,7 @@ def record_new_offers(offers, source_group):
                 source_link=link,
                 defaults={
                     'source_group': source_group,
+                    'store': detect_store_from_url(link) or STORE_MERCADOLIVRE,
                     'original_message': message_text,
                     'coupon': coupon,
                     'status': IncomingOfferStatus.PENDING,
@@ -1669,65 +1732,66 @@ def publish_offer_in_whatsapp(browser, whatsapp_tab, target_groups, message, aff
     return f'Oferta enviada com sucesso para {success_count} grupo(s).'
 
 
+def _shorten_offer_title(title, max_len=72):
+    cleaned = re.sub(r'\s+', ' ', (title or '')).strip()
+    if len(cleaned) <= max_len:
+        return cleaned
+    # Tenta cortar em separador natural (vírgula, traço, barra) antes de truncar
+    for sep in (' - ', ' | ', ', ', ' / '):
+        head = cleaned.split(sep, 1)[0].strip()
+        if 18 <= len(head) <= max_len:
+            return head
+    cut = cleaned[:max_len].rsplit(' ', 1)[0].strip()
+    return f'{cut or cleaned[:max_len]}…'
+
+
 def build_incoming_offer_message(details, coupon, affiliate_url):
     price_val = float(details['price'])
     price = f'{price_val:,.2f}'.replace(',', 'X').replace('.', ',').replace('X', '.')
     original_val = details.get('original_price')
     discount_pct = 0
     original = ''
-    savings = ''
     if original_val and float(original_val) > price_val:
         original_float = float(original_val)
         original = f'{original_float:,.2f}'.replace(',', 'X').replace('.', ',').replace('X', '.')
-        savings_float = original_float - price_val
-        savings = f'{savings_float:,.2f}'.replace(',', 'X').replace('.', ',').replace('X', '.')
-        discount_pct = round((savings_float / original_float) * 100)
+        discount_pct = round(((original_float - price_val) / original_float) * 100)
 
+    store_suffix = get_store_headline_suffix(details.get('store', STORE_MERCADOLIVRE))
     if discount_pct >= 35:
-        headline = f'🚨 *SUPER OFERTA — {discount_pct}% OFF NO MERCADO LIVRE!*'
+        headline = f'🚨 *{discount_pct}% OFF {store_suffix}!*'
     elif discount_pct >= 15:
-        headline = f'🔥 *ACHADINHO — {discount_pct}% OFF NO MERCADO LIVRE!*'
+        headline = f'🔥 *{discount_pct}% OFF {store_suffix}!*'
     elif coupon:
-        headline = '🎟️ *OFERTA COM CUPOM NO MERCADO LIVRE!*'
+        headline = f'🎟️ *CUPOM {store_suffix}!*'
     else:
-        headline = '🚨 *OFERTA IMPERDÍVEL NO MERCADO LIVRE!*'
+        headline = f'🔥 *OFERTA {store_suffix}!*'
 
+    short_title = _shorten_offer_title(details.get('title', ''))
     lines = [
         headline,
         '',
-        f'*{details["title"]}*',
-        '',
+        f'*{short_title}*',
     ]
     if original and discount_pct > 0:
-        lines.append(f'📉 ~De R$ {original}~')
-        lines.append(f'💥 *Por apenas R$ {price}*')
-        lines.append(f'💰 *Economia de R$ {savings} ({discount_pct}% OFF)*')
+        lines.append(f'~R$ {original}~ → *R$ {price}* 💥')
     else:
-        lines.append(f'💥 *Por apenas R$ {price}*')
-
-    rating = details.get('rating')
-    if rating is not None and float(rating) >= 4.0:
-        rating_str = f'{float(rating):.1f}'.replace('.', ',')
-        lines.append(f'⭐ Avaliação: *{rating_str} / 5,0*')
+        lines.append(f'*R$ {price}* 💥')
 
     if coupon:
-        lines.append(f'🎟️ *Cupom:* {coupon}')
+        lines.append(f'🎟️ Cupom: *{coupon}*')
 
-    lines.extend([
-        '',
-        '⚡ _Estoque limitado — preço sujeito a alteração a qualquer momento._',
-        '👉 *Garanta o seu aqui:*',
-        f'🛒 {affiliate_url}',
-    ])
+    lines.append(f'👉 {affiliate_url}')
     return '\n'.join(lines)
 
 
 def _store_product_and_publication(inbox, details, affiliate_url):
     with transaction.atomic():
+        store = details.get('store', STORE_MERCADOLIVRE)
         product = ProductOffer.objects.filter(item_id=details['item_id']).first()
         if product is None:
             product = ProductOffer(
                 item_id=details['item_id'],
+                store=store,
                 category='other',
                 title=details['title'],
                 price=details['price'],
@@ -1738,6 +1802,7 @@ def _store_product_and_publication(inbox, details, affiliate_url):
                 condition='unknown',
             )
         else:
+            product.store = store
             product.title = details['title']
             product.price = details['price']
             product.original_price = details.get('original_price')
@@ -1843,7 +1908,18 @@ def process_offer(inbox, browser, whatsapp_tab, affiliate_tab, target_groups, pu
                 opened_temp_tab = True
             try:
                 browser.switch_to.window(working_tab)
-                details = resolve_product_page(browser, inbox.source_link, inbox.original_message)
+                store = detect_store_from_url(inbox.source_link) or inbox.store or STORE_MERCADOLIVRE
+                if store == STORE_AMAZON:
+                    from .amazon_provider import (
+                        generate_amazon_affiliate_link,
+                        resolve_amazon_product_page,
+                        validate_amazon_affiliate_link,
+                    )
+                    details = resolve_amazon_product_page(browser, inbox.source_link, inbox.original_message)
+                else:
+                    details = resolve_product_page(browser, inbox.source_link, inbox.original_message)
+                    details.setdefault('store', STORE_MERCADOLIVRE)
+
                 quality_ok, quality_reason = evaluate_offer_quality(details, inbox.coupon)
                 if not quality_ok:
                     inbox.status = IncomingOfferStatus.SKIPPED
@@ -1851,13 +1927,18 @@ def process_offer(inbox, browser, whatsapp_tab, affiliate_tab, target_groups, pu
                     inbox.processed_at = timezone.now()
                     inbox.save(update_fields=['status', 'error_message', 'processed_at', 'updated_at'])
                     return quality_reason
-                affiliate_url = generate_affiliate_link(browser, details['product_url'])
-                validate_affiliate_link(
-                    browser,
-                    affiliate_url,
-                    details['item_id'],
-                    inbox.original_message,
-                )
+
+                if store == STORE_AMAZON:
+                    affiliate_url = generate_amazon_affiliate_link(browser, details['product_url'])
+                    validate_amazon_affiliate_link(browser, affiliate_url, details['item_id'])
+                else:
+                    affiliate_url = generate_affiliate_link(browser, details['product_url'])
+                    validate_affiliate_link(
+                        browser,
+                        affiliate_url,
+                        details['item_id'],
+                        inbox.original_message,
+                    )
             finally:
                 close_automation_tab(
                     browser,

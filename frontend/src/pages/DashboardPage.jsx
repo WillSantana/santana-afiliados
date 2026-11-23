@@ -7,6 +7,7 @@ export default function DashboardPage({ onNavigateTab }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [syncingClicks, setSyncingClicks] = useState(false);
 
   const loadDashboard = useCallback(async () => {
     try {
@@ -20,6 +21,19 @@ export default function DashboardPage({ onNavigateTab }) {
     }
   }, []);
 
+  const handleSyncClicks = async () => {
+    setSyncingClicks(true);
+    setError('');
+    try {
+      await api.syncAffiliateClicks();
+      await loadDashboard();
+    } catch (err) {
+      setError(err.message || 'Falha ao sincronizar cliques oficiais');
+    } finally {
+      setSyncingClicks(false);
+    }
+  };
+
   useEffect(() => {
     loadDashboard();
     const timer = setInterval(loadDashboard, 8000);
@@ -29,6 +43,7 @@ export default function DashboardPage({ onNavigateTab }) {
   const botStatus = data?.bot_status || {};
   const metrics = data?.metrics || {};
   const groups = data?.groups || {};
+  const storeMetrics = data?.store_metrics || [];
   const postsByGroup = data?.posts_by_group || [];
   const maxGroupPosts = Math.max(1, ...postsByGroup.map((item) => item.total_success || 0));
 
@@ -206,6 +221,117 @@ export default function DashboardPage({ onNavigateTab }) {
           </div>
         </div>
       </div>
+
+      {/* Métricas por Loja (Mercado Livre / Amazon) */}
+      {storeMetrics.length > 0 && (
+        <div style={{ marginBottom: '1.25rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.65rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+            <div>
+              <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 700, color: 'var(--gray-900)' }}>
+                Métricas por Loja
+              </h3>
+              <span style={{ fontSize: '0.78rem', color: 'var(--gray-500)' }}>
+                Acompanhamento separado por marketplace (com cliques oficiais)
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={handleSyncClicks}
+              disabled={syncingClicks}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.35rem',
+                padding: '0.4rem 0.75rem',
+                background: 'white',
+                border: '1px solid var(--gray-300)',
+                borderRadius: 'var(--radius-sm)',
+                fontSize: '0.78rem',
+                fontWeight: 600,
+                cursor: syncingClicks ? 'wait' : 'pointer',
+              }}
+            >
+              <Icon name="refresh" size={14} />
+              {syncingClicks ? 'Sincronizando cliques...' : 'Sincronizar Cliques'}
+            </button>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 300px), 1fr))', gap: '0.85rem' }}>
+            {storeMetrics.map((item) => {
+              const isAmazon = item.store === 'amazon';
+              const accentBg = isAmazon ? '#fff7ed' : '#fefce8';
+              const accentBorder = isAmazon ? '#fed7aa' : '#fde047';
+              const badgeBg = isAmazon ? '#ea580c' : '#eab308';
+              const badgeColor = isAmazon ? '#ffffff' : '#1e293b';
+              return (
+                <div
+                  key={item.store}
+                  style={{
+                    background: 'white',
+                    borderRadius: 'var(--radius-md)',
+                    padding: '1.1rem 1.25rem',
+                    border: `1px solid ${accentBorder}`,
+                    borderLeft: `4px solid ${badgeBg}`,
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.8rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <span style={{
+                        padding: '0.2rem 0.55rem',
+                        borderRadius: '999px',
+                        fontSize: '0.72rem',
+                        fontWeight: 800,
+                        background: badgeBg,
+                        color: badgeColor,
+                      }}>
+                        {item.label}
+                      </span>
+                      <span style={{ fontSize: '0.75rem', color: 'var(--gray-500)' }}>
+                        {item.pending_offers} na fila
+                      </span>
+                    </div>
+                    <span style={{
+                      fontSize: '0.75rem',
+                      fontWeight: 700,
+                      padding: '0.15rem 0.5rem',
+                      borderRadius: '999px',
+                      background: accentBg,
+                      color: isAmazon ? '#c2410c' : '#854d0e',
+                    }}>
+                      {item.deliveries_today} envio(s) hoje
+                    </span>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(95px, 1fr))', gap: '0.6rem' }}>
+                    <div style={{ background: '#f8fafc', borderRadius: '8px', padding: '0.6rem 0.7rem' }}>
+                      <div style={{ fontSize: '0.68rem', fontWeight: 600, color: 'var(--gray-500)', textTransform: 'uppercase' }}>Links Capturados</div>
+                      <div style={{ fontSize: '1.3rem', fontWeight: 800, color: 'var(--gray-900)', marginTop: '0.15rem' }}>
+                        {item.offers_found}
+                      </div>
+                    </div>
+                    <div style={{ background: '#f8fafc', borderRadius: '8px', padding: '0.6rem 0.7rem' }}>
+                      <div style={{ fontSize: '0.68rem', fontWeight: 600, color: 'var(--gray-500)', textTransform: 'uppercase' }}>Links Afiliados</div>
+                      <div style={{ fontSize: '1.3rem', fontWeight: 800, color: '#16a34a', marginTop: '0.15rem' }}>
+                        {item.affiliates_generated}
+                      </div>
+                    </div>
+                    <div style={{ background: '#f8fafc', borderRadius: '8px', padding: '0.6rem 0.7rem' }}>
+                      <div style={{ fontSize: '0.68rem', fontWeight: 600, color: 'var(--gray-500)', textTransform: 'uppercase' }}>Envios Totais</div>
+                      <div style={{ fontSize: '1.3rem', fontWeight: 800, color: '#0284c7', marginTop: '0.15rem' }}>
+                        {item.deliveries_total}
+                      </div>
+                    </div>
+                    <div style={{ background: '#f8fafc', borderRadius: '8px', padding: '0.6rem 0.7rem' }}>
+                      <div style={{ fontSize: '0.68rem', fontWeight: 600, color: 'var(--gray-500)', textTransform: 'uppercase' }}>Cliques Oficiais</div>
+                      <div style={{ fontSize: '1.3rem', fontWeight: 800, color: '#7c3aed', marginTop: '0.15rem' }}>
+                        {item.clicks_month ?? 0}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Grupos Monitorados e Destinos */}
       <div style={{ background: 'white', borderRadius: 'var(--radius-md)', padding: '1.25rem', border: '1px solid var(--gray-200)', marginBottom: '1.5rem' }}>
