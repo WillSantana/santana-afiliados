@@ -232,7 +232,13 @@ class PublicationViewSet(viewsets.ModelViewSet):
             key=lambda item: (-item['total_success'], -item['today_success'], item['group_name'].casefold()),
         )
 
-        from .affiliate_watcher import parse_store_daily_quotas
+        from datetime import timedelta
+        from .affiliate_watcher import (
+            current_publish_window_status,
+            daily_publication_count,
+            get_enabled_stores,
+            parse_store_daily_quotas,
+        )
         from .models import StoreClickStats
         from .product_urls import (
             STORE_AMAZON,
@@ -245,7 +251,13 @@ class PublicationViewSet(viewsets.ModelViewSet):
             row.store: row for row in StoreClickStats.objects.all()
         }
         store_quotas = parse_store_daily_quotas()
+        enabled_stores = get_enabled_stores()
+        window_status = current_publish_window_status()
+        offers_published_today_total = daily_publication_count()
+
         store_metrics = []
+        total_clicks_all = 0
+        total_orders_all = 0
         for store_key in (STORE_MERCADOLIVRE, STORE_AMAZON, STORE_SHOPEE, STORE_TIKTOK):
             store_offers = all_offers.filter(store=store_key)
             store_counts = Counter(store_offers.values_list('status', flat=True))
@@ -261,13 +273,23 @@ class PublicationViewSet(viewsets.ModelViewSet):
                 Q(incoming_offer__store=store_key)
                 | Q(incoming_offer__isnull=True, publication__product__store=store_key)
             )
+            store_offers_today = store_offers.filter(
+                status__in=(IncomingOfferStatus.PUBLISHED, IncomingOfferStatus.UNCERTAIN),
+                published_at__date=today,
+            ).count()
             click_row = click_stats_map.get(store_key)
+            clicks_val = click_row.clicks_month if click_row else 0
+            orders_val = click_row.orders_month if click_row else 0
+            total_clicks_all += clicks_val
+            total_orders_all += orders_val
             store_metrics.append({
                 'store': store_key,
                 'label': get_store_display_name(store_key),
+                'enabled': store_key in enabled_stores,
                 'offers_found': store_offers.count(),
                 'pending_offers': store_counts.get(IncomingOfferStatus.PENDING, 0),
                 'published_offers': store_counts.get(IncomingOfferStatus.PUBLISHED, 0),
+                'offers_published_today': store_offers_today,
                 'skipped_offers': store_counts.get(IncomingOfferStatus.SKIPPED, 0),
                 'affiliates_generated': len(store_incoming_aff | store_product_aff),
                 'deliveries_today': store_deliveries_qs.filter(
@@ -277,7 +299,8 @@ class PublicationViewSet(viewsets.ModelViewSet):
                 'deliveries_total': store_deliveries_qs.filter(
                     status=PublicationDeliveryStatus.SUCCESS,
                 ).count(),
-                'clicks_month': click_row.clicks_month if click_row else 0,
+                'clicks_month': clicks_val,
+                'orders_month': orders_val,
                 'clicks_synced_at': (
                     click_row.last_synced_at.isoformat()
                     if click_row and click_row.last_synced_at
@@ -286,6 +309,49 @@ class PublicationViewSet(viewsets.ModelViewSet):
                 'clicks_error': click_row.sync_error if click_row else '',
                 'daily_quota': store_quotas.get(store_key),
             })
+
+        since_24h = timezone.now() - timedelta(hours=24)
+        top_24h_qs = (
+            all_offers.filter(
+                status=IncomingOfferStatus.PUBLISHED,
+                published_at__gte=since_24h,
+            )
+            .select_related('product')
+            .annotate(
+                deliveries_count=Count(
+                    'deliveries',
+                    filter=Q(deliveries__status=PublicationDeliveryStatus.SUCCESS),
+                )
+            )
+            .order_by('-deliveries_count', '-published_at')[:6]
+        )
+        top_offers_24h = []
+        for offer in top_24h_qs:
+            prod = offer.product
+            price_val = float(prod.price) if prod and prod.price is not None else None
+            orig_val = float(prod.original_price) if prod and prod.original_price is not None else None
+            discount_pct = 0
+            if price_val and orig_val and orig_val > price_val:
+                discount_pct = round(((orig_val - price_val) / orig_val) * 100)
+            top_offers_24h.append({
+                'id': offer.id,
+                'title': prod.title if prod else offer.source_link,
+                'thumbnail': prod.thumbnail if prod else '',
+                'store': offer.store,
+                'store_label': get_store_display_name(offer.store),
+                'price': price_val,
+                'original_price': orig_val,
+                'discount_pct': discount_pct,
+                'deliveries_count': offer.deliveries_count,
+                'affiliate_url': offer.affiliate_url or (prod.affiliate_url if prod else ''),
+                'published_at': offer.published_at.isoformat() if offer.published_at else None,
+            })
+
+        clicks_per_delivery = (
+            round(total_clicks_all / deliveries_success, 2)
+            if deliveries_success > 0
+            else 0.0
+        )
 
         recent_deliveries = PublicationDelivery.objects.select_related('publication__product').order_by('-sent_at')[:20]
         recent_offers = all_offers.select_related('product').order_by('-received_at')[:15]
@@ -296,6 +362,13 @@ class PublicationViewSet(viewsets.ModelViewSet):
                 'chrome_connected': self._is_chrome_connected(),
                 'daily_limit': getattr(settings, 'AFFILIATE_BOT_DAILY_LIMIT', 20),
                 'today_sent': today_sent,
+                'offers_published_today': offers_published_today_total,
+            },
+            'window_status': window_status,
+            'clicks_summary': {
+                'total_clicks': total_clicks_all,
+                'total_orders': total_orders_all,
+                'clicks_per_delivery': clicks_per_delivery,
             },
             'metrics': {
                 'total_offers': total_offers,
@@ -310,6 +383,7 @@ class PublicationViewSet(viewsets.ModelViewSet):
                 'deliveries_uncertain': deliveries_uncertain,
             },
             'store_metrics': store_metrics,
+            'top_offers_24h': top_offers_24h,
             'groups': {
                 'sources': source_groups,
                 'destinations': dest_groups,
