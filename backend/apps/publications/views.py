@@ -234,13 +234,19 @@ class PublicationViewSet(viewsets.ModelViewSet):
 
         from .affiliate_watcher import parse_store_daily_quotas
         from .models import StoreClickStats
-        from .product_urls import STORE_AMAZON, STORE_MERCADOLIVRE, STORE_SHOPEE, get_store_display_name
+        from .product_urls import (
+            STORE_AMAZON,
+            STORE_MERCADOLIVRE,
+            STORE_SHOPEE,
+            STORE_TIKTOK,
+            get_store_display_name,
+        )
         click_stats_map = {
             row.store: row for row in StoreClickStats.objects.all()
         }
         store_quotas = parse_store_daily_quotas()
         store_metrics = []
-        for store_key in (STORE_MERCADOLIVRE, STORE_AMAZON, STORE_SHOPEE):
+        for store_key in (STORE_MERCADOLIVRE, STORE_AMAZON, STORE_SHOPEE, STORE_TIKTOK):
             store_offers = all_offers.filter(store=store_key)
             store_counts = Counter(store_offers.values_list('status', flat=True))
             store_incoming_aff = set(

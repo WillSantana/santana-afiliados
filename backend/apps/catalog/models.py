@@ -163,6 +163,10 @@ class ProductOffer(models.Model):
                 re.search(r'-i\.\d+\.\d+(?:[/?#]|$)', parsed_url.path, re.IGNORECASE)
                 or re.search(r'/(?:product|opaanlp)/\d+/\d+(?:[/?#]|$)', parsed_url.path, re.IGNORECASE)
             )
+        if hostname in ('shop.tiktok.com', 'tiktok.com', 'www.tiktok.com', 'm.tiktok.com'):
+            return bool(
+                re.search(r'/(?:view/product|shop/pdp/[^/?#]+|product)/\d{10,24}(?:[/?#]|$)', parsed_url.path, re.IGNORECASE)
+            )
         if not (
             hostname == 'mercadolivre.com.br'
             or hostname.endswith('.mercadolivre.com.br')

@@ -267,7 +267,28 @@ class Command(BaseCommand):
                 )
 
             last_window_notice = ''
+            last_clicks_sync_ts = 0.0
+            clicks_sync_interval = max(
+                300,
+                int(getattr(settings, 'AFFILIATE_BOT_CLICKS_SYNC_INTERVAL_SECONDS', 1800)),
+            )
             while True:
+                # Sincroniza cliques oficiais periodicamente (a cada 30 min por padrão)
+                if not options['once'] and (time.monotonic() - last_clicks_sync_ts) >= clicks_sync_interval:
+                    try:
+                        from apps.publications.affiliate_watcher import get_enabled_stores
+                        from apps.publications.click_sync import sync_official_click_stats
+                        sync_official_click_stats(
+                            browser=browser,
+                            fallback_tab=whatsapp_tab,
+                            stores=get_enabled_stores(),
+                        )
+                        last_clicks_sync_ts = time.monotonic()
+                    except Exception as exc:
+                        last_clicks_sync_ts = time.monotonic()
+                        self.stdout.write(
+                            self.style.WARNING(f'Aviso ao sincronizar cliques oficiais: {exc}')
+                        )
                 if all_groups_mode:
                     current_sources = source_groups
                 else:

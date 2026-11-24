@@ -23,12 +23,14 @@ from .product_urls import (
     STORE_AMAZON,
     STORE_MERCADOLIVRE,
     STORE_SHOPEE,
+    STORE_TIKTOK,
     detect_store_from_url,
     extract_item_id,
     get_store_headline_suffix,
     is_amazon_url,
     is_marketplace_url,
     is_shopee_url,
+    is_tiktok_url,
     parse_brl_price,
 )
 
@@ -47,6 +49,10 @@ AMAZON_LINK_PATTERN = re.compile(
 )
 SHOPEE_LINK_PATTERN = re.compile(
     r'https?://(?:[a-zA-Z0-9.-]+\.)?(?:s\.shopee\.com\.br|shopee\.com\.br|shope\.ee|shp\.ee)(?:/[^\s<>"]*)?',
+    re.IGNORECASE,
+)
+TIKTOK_LINK_PATTERN = re.compile(
+    r'https?://(?:[a-zA-Z0-9.-]+\.)?(?:vt\.tiktok\.com|vm\.tiktok\.com|shop\.tiktok\.com|tiktok\.com)(?:/[^\s<>"]*)?',
     re.IGNORECASE,
 )
 MELI_SHORT_LINK_RE = re.compile(
@@ -182,6 +188,31 @@ def extract_amazon_links(text):
     return links
 
 
+def extract_tiktok_links(text):
+    """
+    Identifica links do TikTok Shop (vt.tiktok.com, vm.tiktok.com, shop.tiktok.com, tiktok.com/shop/...).
+    """
+    if not text:
+        return set()
+    raw_matches = TIKTOK_LINK_PATTERN.findall(text)
+    links = set()
+    for candidate in raw_matches:
+        cleaned = candidate.rstrip('.,;:!?)>]}"\'')
+        if not is_tiktok_url(cleaned):
+            continue
+        try:
+            parsed = urlsplit(cleaned)
+        except Exception:
+            continue
+        hostname = (parsed.hostname or '').lower()
+        path = (parsed.path or '').rstrip('/')
+        if not path or path == '/':
+            continue
+        normalized = urlunsplit(('https', hostname, path, '', ''))
+        links.add(normalized)
+    return links
+
+
 def extract_offer_links(text):
     enabled = get_enabled_stores()
     links = set()
@@ -191,6 +222,8 @@ def extract_offer_links(text):
         links.update(extract_amazon_links(text))
     if STORE_SHOPEE in enabled:
         links.update(extract_shopee_links(text))
+    if STORE_TIKTOK in enabled:
+        links.update(extract_tiktok_links(text))
     return links
 
 
@@ -306,13 +339,45 @@ def close_automation_tab(browser, tab_handle=None, fallback_tab=None, handles_be
             ):
                 tabs_to_close.append(handle)
 
+    # Também recolhe abas temporárias remanescentes de produtos/Link Builder
+    # para impedir acúmulo no Chrome dedicado (sem tocar no WhatsApp Web nem no painel).
+    temp_url_markers = (
+        'mercadolivre.com.br/afiliados/linkbuilder',
+        'produto.mercadolivre.com.br/',
+        'mercadolivre.com.br/p/',
+        'mercadolivre.com.br/social/',
+        'meli.la/',
+        'amazon.com.br/dp/',
+        'amzn.to/',
+    )
+    for handle in handles:
+        if handle == fallback_tab or handle in tabs_to_close:
+            continue
+        try:
+            browser.switch_to.window(handle)
+            url = (browser.current_url or '').lower()
+            if any(marker in url for marker in temp_url_markers):
+                tabs_to_close.append(handle)
+        except Exception:
+            continue
+
     for handle in tabs_to_close:
         try:
             current_handles = list(browser.window_handles)
             if len(current_handles) <= 1 or handle not in current_handles:
                 continue
             browser.switch_to.window(handle)
-            browser.close()
+            try:
+                browser.execute_script('window.onbeforeunload = null;')
+            except Exception:
+                pass
+            try:
+                browser.close()
+            except Exception:
+                try:
+                    browser.execute_script('window.close();')
+                except Exception:
+                    pass
         except Exception:
             logger.debug('Não foi possível fechar aba auxiliar %s.', handle, exc_info=True)
 
@@ -2018,6 +2083,13 @@ def process_offer(inbox, browser, whatsapp_tab, affiliate_tab, target_groups, pu
                         validate_shopee_affiliate_link,
                     )
                     details = resolve_shopee_product_page(browser, inbox.source_link, inbox.original_message)
+                elif store == STORE_TIKTOK:
+                    from .tiktok_provider import (
+                        generate_tiktok_affiliate_link,
+                        resolve_tiktok_product_page,
+                        validate_tiktok_affiliate_link,
+                    )
+                    details = resolve_tiktok_product_page(browser, inbox.source_link, inbox.original_message)
                 else:
                     details = resolve_product_page(browser, inbox.source_link, inbox.original_message)
                     details.setdefault('store', STORE_MERCADOLIVRE)
@@ -2036,6 +2108,9 @@ def process_offer(inbox, browser, whatsapp_tab, affiliate_tab, target_groups, pu
                 elif store == STORE_SHOPEE:
                     affiliate_url = generate_shopee_affiliate_link(browser, details['product_url'])
                     validate_shopee_affiliate_link(browser, affiliate_url, details['item_id'])
+                elif store == STORE_TIKTOK:
+                    affiliate_url = generate_tiktok_affiliate_link(browser, details['product_url'])
+                    validate_tiktok_affiliate_link(browser, affiliate_url, details['item_id'])
                 else:
                     affiliate_url = generate_affiliate_link(browser, details['product_url'])
                     validate_affiliate_link(

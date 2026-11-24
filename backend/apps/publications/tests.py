@@ -995,3 +995,45 @@ class IncomingOfferPersistenceTests(TestCase):
             headers['Authorization'],
             f'SHA256 Credential=123456,Timestamp=1700000000,Signature={expected_sig}',
         )
+
+    @override_settings(AFFILIATE_BOT_ENABLED_STORES='mercadolivre,amazon,shopee,tiktok')
+    def test_tiktok_link_extraction_copy_and_permalink(self):
+        from apps.publications.affiliate_watcher import (
+            build_incoming_offer_message,
+            extract_offer_links,
+        )
+        from apps.publications.product_urls import (
+            STORE_TIKTOK,
+            detect_store_from_url,
+            extract_tiktok_item_id,
+        )
+
+        text = (
+            'Oferta TikTok https://vt.tiktok.com/ZSY123AbC/ '
+            'e produto https://shop.tiktok.com/view/product/1729384756123456789?region=BR'
+        )
+        links = extract_offer_links(text)
+        self.assertIn('https://vt.tiktok.com/ZSY123AbC', links)
+        self.assertIn('https://shop.tiktok.com/view/product/1729384756123456789', links)
+        self.assertEqual(detect_store_from_url('https://vt.tiktok.com/ZSY123AbC'), STORE_TIKTOK)
+        self.assertEqual(
+            extract_tiktok_item_id('https://shop.tiktok.com/view/product/1729384756123456789'),
+            'TTK1729384756123456789',
+        )
+        self.assertTrue(
+            ProductOffer.is_valid_listing_permalink('https://shop.tiktok.com/view/product/1729384756123456789')
+        )
+
+        msg = build_incoming_offer_message(
+            {
+                'title': 'Escova Secadora 3 em 1',
+                'price': 59.90,
+                'original_price': 119.80,
+                'store': STORE_TIKTOK,
+            },
+            '',
+            'https://vt.tiktok.com/ZSY123AbC',
+        )
+        self.assertIn('NO TIKTOK SHOP', msg)
+        self.assertIn('50% OFF', msg)
+        self.assertIn('https://vt.tiktok.com/ZSY123AbC', msg)

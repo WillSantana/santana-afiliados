@@ -259,11 +259,12 @@ export default function DashboardPage({ onNavigateTab }) {
             {storeMetrics.map((item) => {
               const isAmazon = item.store === 'amazon';
               const isShopee = item.store === 'shopee';
-              const accentBg = isShopee ? '#fff1f2' : isAmazon ? '#fff7ed' : '#fefce8';
-              const accentBorder = isShopee ? '#fecdd3' : isAmazon ? '#fed7aa' : '#fde047';
-              const badgeBg = isShopee ? '#ee4d2d' : isAmazon ? '#ea580c' : '#eab308';
-              const badgeColor = (isShopee || isAmazon) ? '#ffffff' : '#1e293b';
-              const pillColor = isShopee ? '#be123c' : isAmazon ? '#c2410c' : '#854d0e';
+              const isTikTok = item.store === 'tiktok';
+              const accentBg = isTikTok ? '#ecfeff' : isShopee ? '#fff1f2' : isAmazon ? '#fff7ed' : '#fefce8';
+              const accentBorder = isTikTok ? '#a5f3fc' : isShopee ? '#fecdd3' : isAmazon ? '#fed7aa' : '#fde047';
+              const badgeBg = isTikTok ? '#0f172a' : isShopee ? '#ee4d2d' : isAmazon ? '#ea580c' : '#eab308';
+              const badgeColor = (isTikTok || isShopee || isAmazon) ? '#ffffff' : '#1e293b';
+              const pillColor = isTikTok ? '#0e7490' : isShopee ? '#be123c' : isAmazon ? '#c2410c' : '#854d0e';
               return (
                 <div
                   key={item.store}
