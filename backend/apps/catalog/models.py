@@ -158,6 +158,11 @@ class ProductOffer(models.Model):
             return False
         if hostname == 'amazon.com.br' or hostname.endswith('.amazon.com.br'):
             return bool(re.search(r'/(?:dp|gp/product|gp/aw/d|d)/[A-Z0-9]{10}(?:[/?#]|$)', parsed_url.path, re.IGNORECASE))
+        if hostname == 'shopee.com.br' or hostname.endswith('.shopee.com.br'):
+            return bool(
+                re.search(r'-i\.\d+\.\d+(?:[/?#]|$)', parsed_url.path, re.IGNORECASE)
+                or re.search(r'/(?:product|opaanlp)/\d+/\d+(?:[/?#]|$)', parsed_url.path, re.IGNORECASE)
+            )
         if not (
             hostname == 'mercadolivre.com.br'
             or hostname.endswith('.mercadolivre.com.br')

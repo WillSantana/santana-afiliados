@@ -934,3 +934,64 @@ class IncomingOfferPersistenceTests(TestCase):
         prio_amz, over_amz = select_balanced_target_groups(['Grupo A', 'Grupo B'], store=STORE_AMAZON, max_lead=1)
         self.assertEqual(prio_amz, ['Grupo A', 'Grupo B'])
         self.assertEqual(over_amz, [])
+
+    @override_settings(AFFILIATE_BOT_ENABLED_STORES='mercadolivre,amazon,shopee')
+    def test_shopee_link_extraction_copy_and_store_quotas(self):
+        from apps.publications.affiliate_watcher import (
+            build_incoming_offer_message,
+            extract_offer_links,
+            parse_store_daily_quotas,
+        )
+        from apps.publications.product_urls import (
+            STORE_SHOPEE,
+            detect_store_from_url,
+            extract_shopee_item_id,
+        )
+
+        text = (
+            'Achado Shopee https://s.shopee.com.br/3L9abcXYZ '
+            'e direto https://shopee.com.br/Produto-Top-i.12345.67890?sp_atk=1'
+        )
+        links = extract_offer_links(text)
+        self.assertIn('https://s.shopee.com.br/3L9abcXYZ', links)
+        self.assertIn('https://shopee.com.br/Produto-Top-i.12345.67890', links)
+        self.assertEqual(detect_store_from_url('https://s.shopee.com.br/3L9abcXYZ'), STORE_SHOPEE)
+        self.assertEqual(extract_shopee_item_id('https://shopee.com.br/Produto-Top-i.12345.67890'), 'SHP12345_67890')
+        self.assertTrue(ProductOffer.is_valid_listing_permalink('https://shopee.com.br/product/12345/67890'))
+
+        quotas = parse_store_daily_quotas('mercadolivre=10, amazon=10, shopee=8')
+        self.assertEqual(quotas, {'mercadolivre': 10, 'amazon': 10, 'shopee': 8})
+
+        msg = build_incoming_offer_message(
+            {
+                'title': 'Mini Aspirador Portátil USB',
+                'price': 39.90,
+                'original_price': 79.90,
+                'store': STORE_SHOPEE,
+            },
+            '',
+            'https://s.shopee.com.br/3L9abcXYZ',
+        )
+        self.assertIn('NA SHOPEE', msg)
+        self.assertIn('50% OFF', msg)
+        self.assertIn('https://s.shopee.com.br/3L9abcXYZ', msg)
+
+    @override_settings(
+        AFFILIATE_BOT_SHOPEE_APP_ID='123456',
+        AFFILIATE_BOT_SHOPEE_SECRET='secretkey',
+    )
+    def test_shopee_open_api_signature_header(self):
+        import hashlib
+        from apps.publications.shopee_provider import (
+            build_shopee_open_api_headers,
+            has_shopee_open_api_credentials,
+        )
+
+        self.assertTrue(has_shopee_open_api_credentials())
+        payload = '{"query":"{test}"}'
+        headers = build_shopee_open_api_headers(payload, timestamp=1700000000)
+        expected_sig = hashlib.sha256(f'1234561700000000{payload}secretkey'.encode('utf-8')).hexdigest()
+        self.assertEqual(
+            headers['Authorization'],
+            f'SHA256 Credential=123456,Timestamp=1700000000,Signature={expected_sig}',
+        )

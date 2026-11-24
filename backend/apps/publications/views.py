@@ -232,13 +232,15 @@ class PublicationViewSet(viewsets.ModelViewSet):
             key=lambda item: (-item['total_success'], -item['today_success'], item['group_name'].casefold()),
         )
 
+        from .affiliate_watcher import parse_store_daily_quotas
         from .models import StoreClickStats
-        from .product_urls import STORE_AMAZON, STORE_MERCADOLIVRE, get_store_display_name
+        from .product_urls import STORE_AMAZON, STORE_MERCADOLIVRE, STORE_SHOPEE, get_store_display_name
         click_stats_map = {
             row.store: row for row in StoreClickStats.objects.all()
         }
+        store_quotas = parse_store_daily_quotas()
         store_metrics = []
-        for store_key in (STORE_MERCADOLIVRE, STORE_AMAZON):
+        for store_key in (STORE_MERCADOLIVRE, STORE_AMAZON, STORE_SHOPEE):
             store_offers = all_offers.filter(store=store_key)
             store_counts = Counter(store_offers.values_list('status', flat=True))
             store_incoming_aff = set(
@@ -276,6 +278,7 @@ class PublicationViewSet(viewsets.ModelViewSet):
                     else None
                 ),
                 'clicks_error': click_row.sync_error if click_row else '',
+                'daily_quota': store_quotas.get(store_key),
             })
 
         recent_deliveries = PublicationDelivery.objects.select_related('publication__product').order_by('-sent_at')[:20]

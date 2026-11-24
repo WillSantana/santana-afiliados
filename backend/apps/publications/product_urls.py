@@ -8,6 +8,8 @@ AMAZON_ASIN_PATTERN = re.compile(
     r'/(?:dp|gp/product|gp/aw/d|d)/([A-Z0-9]{10})(?:[/?#]|$)',
     re.IGNORECASE,
 )
+SHOPEE_DASH_ID_PATTERN = re.compile(r'-i\.(\d+)\.(\d+)(?:[/?#]|$)', re.IGNORECASE)
+SHOPEE_PATH_ID_PATTERN = re.compile(r'/(?:product|opaanlp)/(\d+)/(\d+)(?:[/?#]|$)', re.IGNORECASE)
 
 STORE_MERCADOLIVRE = 'mercadolivre'
 STORE_AMAZON = 'amazon'
@@ -104,11 +106,52 @@ def extract_amazon_item_id(url):
     return f'AMZN{asin}' if asin else None
 
 
+def is_shopee_url(url):
+    try:
+        parsed = urlsplit(url)
+    except (ValueError, TypeError):
+        return False
+
+    hostname = (parsed.hostname or '').lower()
+    return parsed.scheme in ('https', 'http') and (
+        hostname in (
+            's.shopee.com.br',
+            'shopee.com.br',
+            'www.shopee.com.br',
+            'shope.ee',
+            'www.shope.ee',
+            'shp.ee',
+        )
+        or hostname.endswith('.shopee.com.br')
+    )
+
+
+def extract_shopee_ids(url):
+    try:
+        parsed = urlsplit(url)
+    except Exception:
+        return None
+    path = parsed.path or ''
+    match = SHOPEE_DASH_ID_PATTERN.search(path) or SHOPEE_PATH_ID_PATTERN.search(path)
+    if match:
+        return match.group(1), match.group(2)
+    return None
+
+
+def extract_shopee_item_id(url):
+    ids = extract_shopee_ids(url)
+    if not ids:
+        return None
+    return f'SHP{ids[0]}_{ids[1]}'
+
+
 def detect_store_from_url(url):
     if is_marketplace_url(url):
         return STORE_MERCADOLIVRE
     if is_amazon_url(url):
         return STORE_AMAZON
+    if is_shopee_url(url):
+        return STORE_SHOPEE
     return None
 
 

@@ -22,11 +22,13 @@ from .models import (
 from .product_urls import (
     STORE_AMAZON,
     STORE_MERCADOLIVRE,
+    STORE_SHOPEE,
     detect_store_from_url,
     extract_item_id,
     get_store_headline_suffix,
     is_amazon_url,
     is_marketplace_url,
+    is_shopee_url,
     parse_brl_price,
 )
 
@@ -41,6 +43,10 @@ MELI_LINK_PATTERN = re.compile(
 )
 AMAZON_LINK_PATTERN = re.compile(
     r'https?://(?:[a-zA-Z0-9.-]+\.)?(?:amzn\.to|a\.co|amazon\.com\.br)(?:/[^\s<>"]*)?',
+    re.IGNORECASE,
+)
+SHOPEE_LINK_PATTERN = re.compile(
+    r'https?://(?:[a-zA-Z0-9.-]+\.)?(?:s\.shopee\.com\.br|shopee\.com\.br|shope\.ee|shp\.ee)(?:/[^\s<>"]*)?',
     re.IGNORECASE,
 )
 MELI_SHORT_LINK_RE = re.compile(
@@ -92,13 +98,60 @@ def extract_mercadolivre_links(text):
 
 
 def get_enabled_stores():
-    raw = getattr(settings, 'AFFILIATE_BOT_ENABLED_STORES', 'mercadolivre,amazon')
+    raw = getattr(settings, 'AFFILIATE_BOT_ENABLED_STORES', 'mercadolivre,amazon,shopee')
     stores = {
         part.strip().lower()
         for part in str(raw or '').split(',')
         if part.strip()
     }
     return stores or {STORE_MERCADOLIVRE}
+
+
+def parse_store_daily_quotas(raw=None):
+    """
+    Interpreta cotas diárias por loja no formato 'mercadolivre=10,amazon=10,shopee=10'.
+    """
+    if raw is None:
+        raw = getattr(settings, 'AFFILIATE_BOT_STORE_DAILY_QUOTAS', '')
+    quotas = {}
+    for chunk in str(raw or '').split(','):
+        part = chunk.strip()
+        if not part or '=' not in part:
+            continue
+        store_key, limit_str = part.split('=', 1)
+        store_key = store_key.strip().lower()
+        try:
+            limit_val = int(limit_str.strip())
+        except ValueError:
+            continue
+        if store_key and limit_val > 0:
+            quotas[store_key] = limit_val
+    return quotas
+
+
+def extract_shopee_links(text):
+    """
+    Identifica links curtos (s.shopee.com.br, shope.ee, shp.ee) e links de produto da Shopee Brasil.
+    """
+    if not text:
+        return set()
+    raw_matches = SHOPEE_LINK_PATTERN.findall(text)
+    links = set()
+    for candidate in raw_matches:
+        cleaned = candidate.rstrip('.,;:!?)>]}"\'')
+        if not is_shopee_url(cleaned):
+            continue
+        try:
+            parsed = urlsplit(cleaned)
+        except Exception:
+            continue
+        hostname = (parsed.hostname or '').lower()
+        path = (parsed.path or '').rstrip('/')
+        if not path or path == '/':
+            continue
+        normalized = urlunsplit(('https', hostname, path, '', ''))
+        links.add(normalized)
+    return links
 
 
 def extract_amazon_links(text):
@@ -136,6 +189,8 @@ def extract_offer_links(text):
         links.update(extract_mercadolivre_links(text))
     if STORE_AMAZON in enabled:
         links.update(extract_amazon_links(text))
+    if STORE_SHOPEE in enabled:
+        links.update(extract_shopee_links(text))
     return links
 
 
@@ -1144,9 +1199,18 @@ def select_next_pending_offer(queryset):
         .annotate(total=Count('id'))
     )
     store_today_counts = {row['store']: row['total'] for row in store_counts_rows}
+    store_quotas = parse_store_daily_quotas()
+
+    def _quota_exceeded_rank(item):
+        s_key = item.store or STORE_MERCADOLIVRE
+        quota = store_quotas.get(s_key)
+        if quota is None:
+            return 0
+        return 1 if store_today_counts.get(s_key, 0) >= quota else 0
 
     candidates.sort(
         key=lambda item: (
+            _quota_exceeded_rank(item),
             store_today_counts.get(item.store or STORE_MERCADOLIVRE, 0),
             -_offer_queue_priority(item),
             item.received_at,
@@ -1947,6 +2011,13 @@ def process_offer(inbox, browser, whatsapp_tab, affiliate_tab, target_groups, pu
                         validate_amazon_affiliate_link,
                     )
                     details = resolve_amazon_product_page(browser, inbox.source_link, inbox.original_message)
+                elif store == STORE_SHOPEE:
+                    from .shopee_provider import (
+                        generate_shopee_affiliate_link,
+                        resolve_shopee_product_page,
+                        validate_shopee_affiliate_link,
+                    )
+                    details = resolve_shopee_product_page(browser, inbox.source_link, inbox.original_message)
                 else:
                     details = resolve_product_page(browser, inbox.source_link, inbox.original_message)
                     details.setdefault('store', STORE_MERCADOLIVRE)
@@ -1962,6 +2033,9 @@ def process_offer(inbox, browser, whatsapp_tab, affiliate_tab, target_groups, pu
                 if store == STORE_AMAZON:
                     affiliate_url = generate_amazon_affiliate_link(browser, details['product_url'])
                     validate_amazon_affiliate_link(browser, affiliate_url, details['item_id'])
+                elif store == STORE_SHOPEE:
+                    affiliate_url = generate_shopee_affiliate_link(browser, details['product_url'])
+                    validate_shopee_affiliate_link(browser, affiliate_url, details['item_id'])
                 else:
                     affiliate_url = generate_affiliate_link(browser, details['product_url'])
                     validate_affiliate_link(

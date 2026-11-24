@@ -255,13 +255,15 @@ export default function DashboardPage({ onNavigateTab }) {
               {syncingClicks ? 'Sincronizando cliques...' : 'Sincronizar Cliques'}
             </button>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 300px), 1fr))', gap: '0.85rem' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 280px), 1fr))', gap: '0.85rem' }}>
             {storeMetrics.map((item) => {
               const isAmazon = item.store === 'amazon';
-              const accentBg = isAmazon ? '#fff7ed' : '#fefce8';
-              const accentBorder = isAmazon ? '#fed7aa' : '#fde047';
-              const badgeBg = isAmazon ? '#ea580c' : '#eab308';
-              const badgeColor = isAmazon ? '#ffffff' : '#1e293b';
+              const isShopee = item.store === 'shopee';
+              const accentBg = isShopee ? '#fff1f2' : isAmazon ? '#fff7ed' : '#fefce8';
+              const accentBorder = isShopee ? '#fecdd3' : isAmazon ? '#fed7aa' : '#fde047';
+              const badgeBg = isShopee ? '#ee4d2d' : isAmazon ? '#ea580c' : '#eab308';
+              const badgeColor = (isShopee || isAmazon) ? '#ffffff' : '#1e293b';
+              const pillColor = isShopee ? '#be123c' : isAmazon ? '#c2410c' : '#854d0e';
               return (
                 <div
                   key={item.store}
@@ -295,9 +297,9 @@ export default function DashboardPage({ onNavigateTab }) {
                       padding: '0.15rem 0.5rem',
                       borderRadius: '999px',
                       background: accentBg,
-                      color: isAmazon ? '#c2410c' : '#854d0e',
+                      color: pillColor,
                     }}>
-                      {item.deliveries_today} envio(s) hoje
+                      {item.deliveries_today} envio(s) hoje{item.daily_quota ? ` • meta ${item.daily_quota}` : ''}
                     </span>
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(95px, 1fr))', gap: '0.6rem' }}>

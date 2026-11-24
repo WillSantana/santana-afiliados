@@ -11,7 +11,7 @@ from django.conf import settings
 from django.utils import timezone
 
 from .models import StoreClickStats
-from .product_urls import STORE_AMAZON, STORE_MERCADOLIVRE
+from .product_urls import STORE_AMAZON, STORE_MERCADOLIVRE, STORE_SHOPEE
 
 logger = logging.getLogger(__name__)
 
@@ -66,6 +66,16 @@ def _sync_amazon_clicks(browser):
     return clicks, ''
 
 
+def _sync_shopee_clicks(browser):
+    browser.get('https://affiliate.shopee.com.br/dashboard')
+    time.sleep(4)
+    text = browser.execute_script('return document.body ? document.body.innerText : ""') or ''
+    clicks = _extract_clicks_from_text(text)
+    if clicks is None:
+        return None, 'Não foi possível localizar o contador de cliques no Portal de Afiliados Shopee (confira o login).'
+    return clicks, ''
+
+
 def sync_official_click_stats():
     from selenium import webdriver
     from selenium.webdriver.chrome.options import Options
@@ -85,6 +95,7 @@ def sync_official_click_stats():
         for store_key, fn in (
             (STORE_MERCADOLIVRE, _sync_mercadolivre_clicks),
             (STORE_AMAZON, _sync_amazon_clicks),
+            (STORE_SHOPEE, _sync_shopee_clicks),
         ):
             try:
                 clicks, err = fn(browser)
