@@ -1,10 +1,55 @@
 {
-  "generated_at": "2026-11-25T21:19:33.740799+00:00",
+  "generated_at": "2026-11-25T21:55:13.041742+00:00",
   "max_age_hours": 48,
   "vip_group_name": "Garimpo de Ofertas",
   "vip_invite_link": "https://chat.whatsapp.com/KZdtfAoUgzlImAVvrT8euC",
   "total": 120,
   "offers": [
+    {
+      "id": "1925",
+      "item_id": "MLB24310715",
+      "title": "O Boticário Glamour Midnight Feminino Colônia desodorante Spray 75ml",
+      "price": 99.9,
+      "original_price": 199.9,
+      "discount_pct": 50,
+      "coupon": "",
+      "store": "mercadolivre",
+      "store_label": "Mercado Livre",
+      "category": "other",
+      "thumbnail": "https://http2.mlstatic.com/D_NQ_NP_803193-MLA84540272032_052025-O.webp",
+      "affiliate_url": "https://meli.la/329woJ4",
+      "published_at": "2026-11-25T21:45:34.892646+00:00"
+    },
+    {
+      "id": "1924",
+      "item_id": "MLB19309318",
+      "title": "Creme Hidratante Facial Corporal Pele Seca 3 Ceramidas CeraVe 454g",
+      "price": 90.19,
+      "original_price": 143.9,
+      "discount_pct": 37,
+      "coupon": "",
+      "store": "mercadolivre",
+      "store_label": "Mercado Livre",
+      "category": "other",
+      "thumbnail": "https://http2.mlstatic.com/D_NQ_NP_769482-MLA118143543046_102026-O.webp",
+      "affiliate_url": "https://meli.la/1bvYECY",
+      "published_at": "2026-11-25T21:39:12.261591+00:00"
+    },
+    {
+      "id": "1923",
+      "item_id": "MLB43505055",
+      "title": "Principia Kit Primeira Rotina Avançada C/ Gl-02 + Nc-10 + Ah-2 + Ps-01",
+      "price": 165.75,
+      "original_price": 221.0,
+      "discount_pct": 25,
+      "coupon": "",
+      "store": "mercadolivre",
+      "store_label": "Mercado Livre",
+      "category": "other",
+      "thumbnail": "https://http2.mlstatic.com/D_NQ_NP_784220-MLA110469972943_042026-O.webp",
+      "affiliate_url": "https://meli.la/1Qd5766",
+      "published_at": "2026-11-25T21:33:50.198887+00:00"
+    },
     {
       "id": "1915",
       "item_id": "MLB81046467",
@@ -1759,51 +1804,6 @@
       "thumbnail": "https://m.media-amazon.com/images/W/BW_MEDIAX_AVIF_MEASUREMENT_1306696-T4/images/I/7119qRsvfhL._AC_SL1500_.jpg",
       "affiliate_url": "https://www.amazon.com.br/dp/B0DYBHNPZT?tag=willjsantana-20",
       "published_at": "2026-11-23T23:55:40.378937+00:00"
-    },
-    {
-      "id": "1426",
-      "item_id": "MLB56327169",
-      "title": "Marmita Elétrica Portátil 1,05l Biv127/220v Sortida Plástico",
-      "price": 55.73,
-      "original_price": 78.99,
-      "discount_pct": 29,
-      "coupon": "",
-      "store": "mercadolivre",
-      "store_label": "Mercado Livre",
-      "category": "other",
-      "thumbnail": "https://http2.mlstatic.com/D_NQ_NP_725147-MLA99489151944_112025-O.webp",
-      "affiliate_url": "https://meli.la/2CbSeo2",
-      "published_at": "2026-11-23T23:35:11.912028+00:00"
-    },
-    {
-      "id": "1419",
-      "item_id": "MLB69327437",
-      "title": "Câmera De Segurança Ip Wifi A8 Full Hd Icsee Ptz 355° Com Visão Noturna Áudio Bidirecional Ip66 Monitoramento Remoto Para Celular Android E iPhone",
-      "price": 98.94,
-      "original_price": 179.9,
-      "discount_pct": 45,
-      "coupon": "",
-      "store": "mercadolivre",
-      "store_label": "Mercado Livre",
-      "category": "other",
-      "thumbnail": "https://http2.mlstatic.com/D_NQ_NP_797717-MLA111994035197_052026-O.webp",
-      "affiliate_url": "https://meli.la/2Nha3zB",
-      "published_at": "2026-11-23T23:23:14.947046+00:00"
-    },
-    {
-      "id": "1307",
-      "item_id": "MLB37821126",
-      "title": "Kit Lavagem Shampoo Cera Tok Final Intense Sintra Fast Vonixx",
-      "price": 169.79,
-      "original_price": 204.92,
-      "discount_pct": 17,
-      "coupon": "",
-      "store": "mercadolivre",
-      "store_label": "Mercado Livre",
-      "category": "other",
-      "thumbnail": "https://http2.mlstatic.com/D_NQ_NP_659633-MLA117032776949_092026-O.webp",
-      "affiliate_url": "https://meli.la/2ExpcE8",
-      "published_at": "2026-11-23T23:19:55.360543+00:00"
     }
   ]
 }
