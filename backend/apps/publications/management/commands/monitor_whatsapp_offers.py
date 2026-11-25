@@ -283,6 +283,13 @@ class Command(BaseCommand):
                             fallback_tab=whatsapp_tab,
                             stores=get_enabled_stores(),
                         )
+                        try:
+                            from apps.publications.vitrine_sync import sync_vitrine_to_github
+                            sync_vitrine_to_github(max_age_hours=48)
+                        except Exception as v_exc:
+                            self.stdout.write(
+                                self.style.WARNING(f'Aviso ao sincronizar vitrine online: {v_exc}')
+                            )
                         last_clicks_sync_ts = time.monotonic()
                     except Exception as exc:
                         last_clicks_sync_ts = time.monotonic()

@@ -6,6 +6,7 @@ integração direta com Vercel / Netlify / GitHub Pages sem banco pago.
 
 import json
 import logging
+import subprocess
 from datetime import timedelta
 from pathlib import Path
 
@@ -87,3 +88,56 @@ def export_vitrine_json(max_age_hours=48):
     except Exception:
         logger.warning('Falha ao gravar vitrine/public/ofertas.json.', exc_info=True)
     return payload
+
+
+def sync_vitrine_to_github(max_age_hours=48):
+    """
+    Exporta vitrine/public/ofertas.json e, se houver mudanças reais e
+    AFFILIATE_BOT_VITRINE_AUTO_PUSH estiver ativo, faz commit e push apenas
+    desse arquivo para disparar o redeploy automático na Vercel.
+    """
+    export_vitrine_json(max_age_hours=max_age_hours)
+    auto_push = str(getattr(settings, 'AFFILIATE_BOT_VITRINE_AUTO_PUSH', '') or '').strip().lower() in (
+        '1', 'true', 'yes', 'on',
+    )
+    if not auto_push:
+        return False
+
+    repo_root = Path(settings.BASE_DIR).parent
+    rel_json = 'vitrine/public/ofertas.json'
+    try:
+        diff_res = subprocess.run(
+            ['git', 'diff', '--quiet', '--', rel_json],
+            cwd=str(repo_root),
+            capture_output=True,
+            timeout=15,
+        )
+        if diff_res.returncode == 0:
+            return False
+
+        subprocess.run(
+            ['git', 'add', '--', rel_json],
+            cwd=str(repo_root),
+            check=True,
+            capture_output=True,
+            timeout=15,
+        )
+        subprocess.run(
+            ['git', 'commit', '-m', 'chore(vitrine): atualiza ofertas.json automaticamente', '--', rel_json],
+            cwd=str(repo_root),
+            check=True,
+            capture_output=True,
+            timeout=20,
+        )
+        subprocess.run(
+            ['git', 'push', 'origin', 'main'],
+            cwd=str(repo_root),
+            check=True,
+            capture_output=True,
+            timeout=45,
+        )
+        logger.info('Vitrine sincronizada com GitHub/Vercel (%s).', rel_json)
+        return True
+    except Exception as exc:
+        logger.warning('Não foi possível sincronizar vitrine/public/ofertas.json com o GitHub: %s', exc)
+        return False
