@@ -92,6 +92,14 @@ export default function App() {
     if (selectedOffer) updateMetaTags(selectedOffer);
   }, [selectedOffer]);
 
+  const visibleStores = useMemo(() => {
+    const activeStores = new Set((payload.offers || []).map((offer) => offer.store).filter(Boolean));
+    return STORES.filter((st) => {
+      if (st.key === 'all' || st.key === 'mercadolivre' || st.key === 'amazon') return true;
+      return activeStores.has(st.key);
+    });
+  }, [payload.offers]);
+
   const filteredOffers = useMemo(() => {
     const q = query.trim().toLowerCase();
     return (payload.offers || []).filter((offer) => {
@@ -237,7 +245,7 @@ export default function App() {
                 onChange={(e) => setQuery(e.target.value)}
               />
               <div className="store-pills">
-                {STORES.map((st) => (
+                {visibleStores.map((st) => (
                   <button
                     key={st.key}
                     type="button"
