@@ -1,0 +1,89 @@
+"""
+Exportador automático da Vitrine Pública de Ofertas (vitrine/public/ofertas.json).
+Mantém apenas ofertas publicadas nas últimas 48 horas (limpeza automática) e permite
+integração direta com Vercel / Netlify / GitHub Pages sem banco pago.
+"""
+
+import json
+import logging
+from datetime import timedelta
+from pathlib import Path
+
+from django.conf import settings
+from django.utils import timezone
+
+from .models import IncomingAffiliateOffer, IncomingOfferStatus
+from .product_urls import get_store_display_name
+
+logger = logging.getLogger(__name__)
+
+
+def get_vitrine_json_path():
+    project_root = Path(settings.BASE_DIR).parent
+    return project_root / 'vitrine' / 'public' / 'ofertas.json'
+
+
+def build_vitrine_offers_payload(max_age_hours=48, limit=120):
+    cutoff = timezone.now() - timedelta(hours=max_age_hours)
+    qs = (
+        IncomingAffiliateOffer.objects.filter(
+            status=IncomingOfferStatus.PUBLISHED,
+            published_at__gte=cutoff,
+            product__isnull=False,
+        )
+        .select_related('product')
+        .order_by('-published_at', '-id')[:limit]
+    )
+
+    items = []
+    seen_item_ids = set()
+    for offer in qs:
+        prod = offer.product
+        if not prod or prod.item_id in seen_item_ids:
+            continue
+        seen_item_ids.add(prod.item_id)
+
+        price_val = float(prod.price) if prod.price is not None else 0.0
+        orig_val = float(prod.original_price) if prod.original_price is not None else None
+        discount_pct = 0
+        if orig_val and orig_val > price_val > 0:
+            discount_pct = round(((orig_val - price_val) / orig_val) * 100)
+
+        items.append({
+            'id': str(offer.id),
+            'item_id': prod.item_id,
+            'title': prod.title,
+            'price': round(price_val, 2),
+            'original_price': round(orig_val, 2) if orig_val else None,
+            'discount_pct': discount_pct,
+            'coupon': (offer.coupon or '').strip(),
+            'store': offer.store or prod.store or 'mercadolivre',
+            'store_label': get_store_display_name(offer.store or prod.store),
+            'category': prod.category or 'other',
+            'thumbnail': prod.thumbnail or '',
+            'affiliate_url': offer.affiliate_url or prod.affiliate_url or prod.product_url,
+            'published_at': offer.published_at.isoformat() if offer.published_at else None,
+        })
+
+    return {
+        'generated_at': timezone.now().isoformat(),
+        'max_age_hours': max_age_hours,
+        'vip_group_name': getattr(settings, 'AFFILIATE_BOT_VIP_GROUP_NAME', 'Garimpo de Ofertas'),
+        'vip_invite_link': getattr(settings, 'AFFILIATE_BOT_VIP_INVITE_LINK', ''),
+        'total': len(items),
+        'offers': items,
+    }
+
+
+def export_vitrine_json(max_age_hours=48):
+    payload = build_vitrine_offers_payload(max_age_hours=max_age_hours)
+    target = get_vitrine_json_path()
+    try:
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(
+            json.dumps(payload, ensure_ascii=False, indent=2),
+            encoding='utf-8',
+        )
+    except Exception:
+        logger.warning('Falha ao gravar vitrine/public/ofertas.json.', exc_info=True)
+    return payload

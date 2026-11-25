@@ -782,9 +782,16 @@ class IncomingOfferPersistenceTests(TestCase):
         self.assertFalse(ok)
         self.assertIn('avaliação', reason.lower())
 
-        # 20% OFF + preço >= 20 + nota >= 4.0 -> aprova
-        ok, _ = evaluate_offer_quality({'price': 80.0, 'original_price': 100.0, 'rating': 4.7})
+        # 20% OFF abaixo de 25% sem cupom -> bloqueia; 30% OFF -> aprova
+        ok, reason = evaluate_offer_quality({'price': 80.0, 'original_price': 100.0, 'rating': 4.7})
+        self.assertFalse(ok)
+        ok, _ = evaluate_offer_quality({'price': 70.0, 'original_price': 100.0, 'rating': 4.7})
         self.assertTrue(ok)
+
+        # Produto fora de estoque -> bloqueia
+        ok, reason = evaluate_offer_quality({'price': 50.0, 'original_price': 100.0, 'in_stock': False})
+        self.assertFalse(ok)
+        self.assertIn('estoque', reason.lower())
 
         # Sem desconto mas com cupom -> aprova
         ok, _ = evaluate_offer_quality({'price': 80.0, 'original_price': None, 'rating': None}, coupon='MELI10')
@@ -818,11 +825,11 @@ class IncomingOfferPersistenceTests(TestCase):
             'MELI10',
             'https://meli.la/Teste123',
         )
+        self.assertIn('MENOR PREÇO HISTÓRICO', msg)
         self.assertIn('55% OFF NO MERCADO LIVRE', msg)
-        self.assertIn('~R$ 199,90~ → *R$ 89,90*', msg)
+        self.assertIn('De ~R$ 199,90~ por *R$ 89,90*', msg)
         self.assertIn('MELI10', msg)
         self.assertIn('https://meli.la/Teste123', msg)
-        self.assertLessEqual(len(msg.splitlines()), 6)
 
     def test_multistore_amazon_link_extraction_and_copy(self):
         from apps.publications.affiliate_watcher import (
@@ -1121,3 +1128,67 @@ class IncomingOfferPersistenceTests(TestCase):
         self.assertEqual(PublicationDelivery.objects.filter(target_group_name='Grupo Aberto', status='success').count(), 1)
         self.assertIn('Grupo Trancado', _ADMIN_ONLY_SKIP_UNTIL)
         _ADMIN_ONLY_SKIP_UNTIL.clear()
+
+    def test_garimpo_funnel_bait_subids_and_24h_dedup(self):
+        from apps.publications.affiliate_watcher import (
+            apply_tracking_subid,
+            build_bait_offer_message,
+            is_recently_published_product,
+        )
+        from apps.publications.product_urls import STORE_AMAZON
+        from apps.publications.vitrine_sync import build_vitrine_offers_payload
+
+        # 1. Sub-IDs dinâmicos na Amazon
+        vip_url = apply_tracking_subid(
+            'https://www.amazon.com.br/dp/B09G9FPHY6?tag=willjsantana-20',
+            store=STORE_AMAZON,
+            channel='garimpo_vip',
+        )
+        bait_url = apply_tracking_subid(
+            'https://www.amazon.com.br/dp/B09G9FPHY6?tag=willjsantana-20',
+            store=STORE_AMAZON,
+            channel='captacao_aberta',
+        )
+        self.assertIn('ascsubtag=garimpo_vip', vip_url)
+        self.assertIn('ascsubtag=captacao_aberta', bait_url)
+
+        # 2. Template de Oferta Isca
+        bait_msg = build_bait_offer_message(
+            {'title': 'Echo Dot 5ª Geração', 'price': 229.00, 'original_price': 429.00},
+            'AMZ10',
+            bait_url,
+            invite_link='https://chat.whatsapp.com/ExemploGarimpo',
+        )
+        self.assertIn('ACHADO DO DIA', bait_msg)
+        self.assertIn('GARIMPO DE OFERTAS', bait_msg)
+        self.assertIn('https://chat.whatsapp.com/ExemploGarimpo', bait_msg)
+
+        # 3. Deduplicação 24h por item_id e título similar + exportação da Vitrine
+        prod = ProductOffer.objects.create(
+            item_id='AMZNB09DEDUP1',
+            store=STORE_AMAZON,
+            category='other',
+            title='Echo Dot 5 Geracao Smart Speaker Alexa',
+            price='229.00',
+            original_price='429.00',
+            product_url='https://www.amazon.com.br/dp/B09DEDUP1',
+            affiliate_url=vip_url,
+            status=ProductStatus.APPROVED,
+        )
+        IncomingAffiliateOffer.objects.create(
+            source_link='https://www.amazon.com.br/dp/B09DEDUP1',
+            source_group='Origem',
+            store=STORE_AMAZON,
+            product=prod,
+            affiliate_url=vip_url,
+            status=IncomingOfferStatus.PUBLISHED,
+            published_at=timezone.now(),
+        )
+        dup_id, _ = is_recently_published_product('AMZNB09DEDUP1', 'Outro Nome')
+        dup_title, _ = is_recently_published_product('AMZNOUTRO999', 'Echo Dot 5 Geracao Smart Speaker Alexa Preto')
+        self.assertTrue(dup_id)
+        self.assertTrue(dup_title)
+
+        vitrine_payload = build_vitrine_offers_payload(max_age_hours=48)
+        self.assertGreaterEqual(vitrine_payload['total'], 1)
+        self.assertEqual(vitrine_payload['offers'][0]['item_id'], 'AMZNB09DEDUP1')

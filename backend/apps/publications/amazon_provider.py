@@ -182,6 +182,23 @@ def resolve_amazon_product_page(browser, source_link, original_message=''):
             except ValueError:
                 rating = None
 
+    availability_text = _element_text(
+        browser,
+        ('#availability', '#outOfStock', '#availability_feature_div'),
+    ).lower()
+    in_stock = not any(
+        phrase in availability_text
+        for phrase in (
+            'não disponível',
+            'nao disponivel',
+            'atualmente indisponível',
+            'atualmente indisponivel',
+            'currently unavailable',
+            'fora de estoque',
+            'esgotado',
+        )
+    )
+
     return {
         'item_id': item_id,
         'title': title[:255],
@@ -190,6 +207,7 @@ def resolve_amazon_product_page(browser, source_link, original_message=''):
         'product_url': product_url,
         'thumbnail': thumbnail,
         'rating': rating,
+        'in_stock': in_stock,
         'store': STORE_AMAZON,
     }
 

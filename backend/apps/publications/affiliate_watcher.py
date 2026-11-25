@@ -1,12 +1,13 @@
 import logging
 import os
+import random
 import re
 import tempfile
 import time
 import unicodedata
 from datetime import timedelta
 from pathlib import Path
-from urllib.parse import parse_qs, quote, unquote, urlsplit, urlunsplit
+from urllib.parse import parse_qs, quote, unquote, urlencode, urlsplit, urlunsplit
 
 from django.conf import settings
 from django.db import transaction
@@ -1180,6 +1181,27 @@ def resolve_product_page(browser, url, expected_text=''):
             except ValueError:
                 rating = None
 
+    availability_text = _element_text(
+        browser,
+        (
+            '.ui-pdp-buybox__quantity__available',
+            '.ui-pdp-stock-information',
+            '.andes-message__text',
+        ),
+    ).lower()
+    in_stock = not any(
+        phrase in availability_text
+        for phrase in (
+            'anúncio pausado',
+            'anuncio pausado',
+            'produto esgotado',
+            'sem estoque',
+            'não disponível',
+            'nao disponivel',
+            'publicação finalizada',
+        )
+    )
+
     return {
         'item_id': item_id,
         'title': title[:255],
@@ -1188,20 +1210,60 @@ def resolve_product_page(browser, url, expected_text=''):
         'product_url': product_url,
         'thumbnail': thumbnail,
         'rating': rating,
+        'in_stock': in_stock,
     }
+
+
+def _title_token_set(title):
+    cleaned = _normalize_group_name(title or '')
+    return {tok for tok in re.findall(r'[a-z0-9]{3,}', cleaned)}
+
+
+def is_recently_published_product(item_id, title='', cooldown_hours=None):
+    """
+    Deduplicação e Cooldown (padrão 24h): impede postar o mesmo produto (item_id)
+    ou produto com título muito similar (>= 85% de sobreposição de palavras) em menos de 24h.
+    """
+    if cooldown_hours is None:
+        cooldown_hours = max(1, int(getattr(settings, 'AFFILIATE_BOT_PRODUCT_COOLDOWN_HOURS', 24)))
+    cutoff = timezone.now() - timedelta(hours=cooldown_hours)
+    recent_qs = IncomingAffiliateOffer.objects.filter(
+        status__in=(IncomingOfferStatus.PUBLISHED, IncomingOfferStatus.UNCERTAIN),
+        published_at__gte=cutoff,
+        product__isnull=False,
+    ).select_related('product')
+
+    if item_id and recent_qs.filter(product__item_id=item_id).exists():
+        return True, f'Oferta ignorada: produto {item_id} já publicado nas últimas {cooldown_hours}h.'
+
+    candidate_tokens = _title_token_set(title)
+    if len(candidate_tokens) >= 3:
+        for recent in recent_qs[:120]:
+            other_tokens = _title_token_set(getattr(recent.product, 'title', ''))
+            if len(other_tokens) < 3:
+                continue
+            overlap = len(candidate_tokens & other_tokens) / max(len(candidate_tokens), len(other_tokens))
+            if overlap >= 0.85:
+                return True, f'Oferta ignorada: produto muito similar já publicado nas últimas {cooldown_hours}h.'
+    return False, ''
 
 
 def evaluate_offer_quality(details, coupon=''):
     """
-    Aplica filtro de qualidade para publicar apenas boas promoções:
+    Módulo de Curadoria Inteligente:
+    - Disponibilidade em estoque (in_stock)
     - Preço mínimo (padrão R$ 20,00)
-    - Nota mínima do produto quando disponível na página do ML (padrão 4,0)
-    - Desconto real mínimo na página do ML (padrão 15% OFF) OU cupom ativo
+    - Nota mínima do produto quando disponível (padrão 4,0)
+    - Desconto real mínimo (padrão 25% OFF) OU cupom ativo
+    - Deduplicação e Cooldown 24h (item_id ou título similar)
     Retorna (approved: bool, reason: str).
     """
-    min_discount_pct = float(getattr(settings, 'AFFILIATE_BOT_MIN_DISCOUNT_PCT', 15))
+    min_discount_pct = float(getattr(settings, 'AFFILIATE_BOT_MIN_DISCOUNT_PCT', 25))
     min_price = float(getattr(settings, 'AFFILIATE_BOT_MIN_PRICE', 20.0))
     min_rating = float(getattr(settings, 'AFFILIATE_BOT_MIN_RATING', 4.0))
+
+    if details.get('in_stock') is False:
+        return False, 'Oferta ignorada: produto fora de estoque ou anúncio pausado.'
 
     price_val = float(details['price'])
     if price_val < min_price:
@@ -1227,12 +1289,19 @@ def evaluate_offer_quality(details, coupon=''):
         if discount_pct <= 0:
             return (
                 False,
-                f'Oferta ignorada: sem desconto verificável no Mercado Livre e sem cupom (mínimo {min_discount_pct:.0f}% OFF).',
+                f'Oferta ignorada: sem desconto verificável na página e sem cupom (mínimo {min_discount_pct:.0f}% OFF).',
             )
         return (
             False,
             f'Oferta ignorada: desconto de {round(discount_pct)}% OFF abaixo do mínimo ({min_discount_pct:.0f}% OFF) e sem cupom.',
         )
+
+    dup, dup_reason = is_recently_published_product(
+        details.get('item_id'),
+        details.get('title', ''),
+    )
+    if dup:
+        return False, dup_reason
 
     return True, ''
 
@@ -1912,12 +1981,88 @@ def publish_offer_in_whatsapp(browser, whatsapp_tab, target_groups, message, aff
                 continue
 
             try:
+                vip_group_name = (getattr(settings, 'AFFILIATE_BOT_VIP_GROUP_NAME', 'Garimpo de Ofertas') or '').strip()
+                vip_invite_link = (getattr(settings, 'AFFILIATE_BOT_VIP_INVITE_LINK', '') or '').strip()
+                vip_daily_limit = max(1, int(getattr(settings, 'AFFILIATE_BOT_VIP_DAILY_LIMIT', 12)))
+                bait_min_discount = float(getattr(settings, 'AFFILIATE_BOT_BAIT_MIN_DISCOUNT_PCT', 40))
+                bait_max_per_group = max(1, int(getattr(settings, 'AFFILIATE_BOT_BAIT_MAX_PER_GROUP_DAY', 3)))
+                is_vip_group = _is_group_match(group_name, vip_group_name) if vip_group_name else False
+
+                today_date = timezone.localdate()
+                if is_vip_group:
+                    vip_sent_today = PublicationDelivery.objects.filter(
+                        target_group_name=group_name,
+                        status=PublicationDeliveryStatus.SUCCESS,
+                        sent_at__date=today_date,
+                    ).count()
+                    if vip_sent_today >= vip_daily_limit:
+                        logger.info(
+                            'Grupo VIP “%s” atingiu limite diário (%s/%s); pulando.',
+                            group_name,
+                            vip_sent_today,
+                            vip_daily_limit,
+                        )
+                        continue
+                    if not is_within_vip_peak_window():
+                        logger.info('Grupo VIP “%s” fora dos horários de pico; pulando.', group_name)
+                        continue
+
+                # Calcula desconto e define se envia como Oferta Isca (captação VIP) ou normal
+                offer_discount_pct = 0
+                prod_obj = publication.product if publication and getattr(publication, 'product', None) else None
+                if prod_obj and prod_obj.original_price and prod_obj.price and prod_obj.original_price > prod_obj.price:
+                    offer_discount_pct = round(
+                        ((float(prod_obj.original_price) - float(prod_obj.price)) / float(prod_obj.original_price)) * 100
+                    )
+
+                use_bait = False
+                tracking_channel = 'garimpo_vip' if is_vip_group else 'grupo_aberto'
+                if (
+                    not is_vip_group
+                    and vip_invite_link
+                    and offer_discount_pct >= bait_min_discount
+                    and prod_obj is not None
+                ):
+                    bait_sent_today = PublicationDelivery.objects.filter(
+                        target_group_name=group_name,
+                        is_bait=True,
+                        status=PublicationDeliveryStatus.SUCCESS,
+                        sent_at__date=today_date,
+                    ).count()
+                    if bait_sent_today < bait_max_per_group:
+                        use_bait = True
+                        tracking_channel = 'captacao_aberta'
+
+                tracked_url = apply_tracking_subid(
+                    affiliate_url,
+                    store=offer_store or STORE_MERCADOLIVRE,
+                    channel=tracking_channel,
+                )
+                if use_bait and prod_obj is not None:
+                    outgoing_message = build_bait_offer_message(
+                        {
+                            'title': prod_obj.title,
+                            'price': prod_obj.price,
+                            'original_price': prod_obj.original_price,
+                            'store': offer_store or STORE_MERCADOLIVRE,
+                        },
+                        inbox.coupon if inbox else '',
+                        tracked_url,
+                        invite_link=vip_invite_link,
+                    )
+                else:
+                    outgoing_message = (
+                        message.replace(affiliate_url, tracked_url)
+                        if tracked_url != affiliate_url
+                        else message
+                    )
+
                 _publish_offer_to_group(
                     browser,
                     whatsapp_tab,
                     group_name,
-                    message,
-                    affiliate_url,
+                    outgoing_message,
+                    tracked_url,
                 )
                 if publication:
                     PublicationDelivery.objects.create(
@@ -1925,7 +2070,9 @@ def publish_offer_in_whatsapp(browser, whatsapp_tab, target_groups, message, aff
                         incoming_offer=inbox,
                         target_group_name=group_name,
                         target_group_jid=group_jid,
-                        affiliate_url=affiliate_url,
+                        affiliate_url=tracked_url,
+                        is_bait=use_bait,
+                        tracking_channel=tracking_channel,
                         status=PublicationDeliveryStatus.SUCCESS,
                         error_message='',
                         sent_at=timezone.now(),
@@ -1933,7 +2080,7 @@ def publish_offer_in_whatsapp(browser, whatsapp_tab, target_groups, message, aff
                 deliveries_result.append({'group': group_name, 'success': True})
                 batch_success += 1
                 _ADMIN_ONLY_SKIP_UNTIL.pop(group_name, None)
-                time.sleep(2)
+                time.sleep(random.uniform(3.0, 7.5))
             except GroupAdminOnlySkip as skip_exc:
                 cooldown_sec = max(
                     300,
@@ -1989,7 +2136,93 @@ def _shorten_offer_title(title, max_len=72):
     return f'{cut or cleaned[:max_len]}…'
 
 
-def build_incoming_offer_message(details, coupon, affiliate_url):
+def apply_tracking_subid(affiliate_url, store=STORE_MERCADOLIVRE, channel='standard'):
+    """
+    Módulo 4 (Rastreamento e Sub-IDs): anexa sub-ID dinâmico (ex.: garimpo_vip vs captacao_aberta)
+    em URLs de loja que suportam query params sem quebrar links curtos.
+    """
+    if not affiliate_url or not channel:
+        return affiliate_url
+    try:
+        parsed = urlsplit(affiliate_url)
+    except Exception:
+        return affiliate_url
+
+    hostname = (parsed.hostname or '').lower()
+    if store == STORE_AMAZON and ('amazon.com.br' in hostname):
+        query = parse_qs(parsed.query, keep_blank_values=True)
+        query['ascsubtag'] = [channel]
+        new_query = urlencode(query, doseq=True)
+        return urlunsplit((parsed.scheme, parsed.netloc, parsed.path, new_query, parsed.fragment))
+    if store == STORE_MERCADOLIVRE and ('mercadolivre.com' in hostname):
+        query = parse_qs(parsed.query, keep_blank_values=True)
+        query['utm_source'] = [channel]
+        new_query = urlencode(query, doseq=True)
+        return urlunsplit((parsed.scheme, parsed.netloc, parsed.path, new_query, parsed.fragment))
+    return affiliate_url
+
+
+def is_within_vip_peak_window(now=None):
+    """
+    Verifica se o horário atual está dentro das janelas de pico do grupo oficial
+    GARIMPO DE OFERTAS (padrão: 08:00-09:00, 12:00-13:30, 19:00-22:00).
+    """
+    raw = (getattr(settings, 'AFFILIATE_BOT_VIP_PEAK_WINDOWS', '') or '').strip()
+    if not raw:
+        return True
+    local_now = timezone.localtime(now or timezone.now())
+    now_mins = local_now.hour * 60 + local_now.minute
+    for chunk in raw.split(','):
+        part = chunk.strip()
+        if '-' not in part:
+            continue
+        start_s, end_s = part.split('-', 1)
+        try:
+            sh, sm = [int(x) for x in start_s.strip().split(':')]
+            eh, em = [int(x) for x in end_s.strip().split(':')]
+        except ValueError:
+            continue
+        if (sh * 60 + sm) <= now_mins <= (eh * 60 + em):
+            return True
+    return False
+
+
+def build_bait_offer_message(details, coupon, affiliate_url, invite_link=''):
+    """
+    Módulo 3 (Template de Captação de Membros — Oferta Isca >= 40% OFF -> GARIMPO DE OFERTAS).
+    """
+    price_val = float(details['price'])
+    price = f'{price_val:,.2f}'.replace(',', 'X').replace('.', ',').replace('X', '.')
+    original_val = details.get('original_price')
+    short_title = _shorten_offer_title(details.get('title', ''))
+    vip_name = getattr(settings, 'AFFILIATE_BOT_VIP_GROUP_NAME', 'GARIMPO DE OFERTAS').upper()
+
+    lines = [f'🔥 *ACHADO DO DIA:* {short_title}']
+    if original_val and float(original_val) > price_val:
+        original_float = float(original_val)
+        original = f'{original_float:,.2f}'.replace(',', 'X').replace('.', ',').replace('X', '.')
+        lines.append(f'De ~R$ {original}~ por *R$ {price}*')
+    else:
+        lines.append(f'Por apenas *R$ {price}*')
+    if coupon:
+        lines.append(f'🎟️ *Use o cupom:* {coupon}')
+    lines.append(f'🛒 Link direto: {affiliate_url}')
+    lines.append('')
+    lines.append(
+        '⚠️ *Quer receber mais bugs de preço e cupons relâmpago como esse antes de acabar '
+        '(sem spam e sem chat travado)?*'
+    )
+    if invite_link:
+        lines.append(f'Entre no nosso grupo VIP *{vip_name}*: {invite_link}')
+    else:
+        lines.append(f'Entre no nosso grupo VIP *{vip_name}*!')
+    return '\n'.join(lines)
+
+
+def build_incoming_offer_message(details, coupon, affiliate_url, original_message=''):
+    """
+    Módulo 2 (Gerador de Copy de Alta Conversão — Template Dinâmico).
+    """
     price_val = float(details['price'])
     price = f'{price_val:,.2f}'.replace(',', 'X').replace('.', ',').replace('X', '.')
     original_val = details.get('original_price')
@@ -2001,14 +2234,14 @@ def build_incoming_offer_message(details, coupon, affiliate_url):
         discount_pct = round(((original_float - price_val) / original_float) * 100)
 
     store_suffix = get_store_headline_suffix(details.get('store', STORE_MERCADOLIVRE))
-    if discount_pct >= 35:
-        headline = f'🚨 *{discount_pct}% OFF {store_suffix}!*'
-    elif discount_pct >= 15:
-        headline = f'🔥 *{discount_pct}% OFF {store_suffix}!*'
+    if discount_pct >= 45:
+        headline = f'🚨 *MENOR PREÇO HISTÓRICO — {discount_pct}% OFF {store_suffix}!*'
+    elif discount_pct >= 25:
+        headline = f'🔥 *OPORTUNIDADE RELÂMPAGO — {discount_pct}% OFF {store_suffix}!*'
     elif coupon:
-        headline = f'🎟️ *CUPOM {store_suffix}!*'
+        headline = f'🎟️ *CUPOM LIBERADO {store_suffix}!*'
     else:
-        headline = f'🔥 *OFERTA {store_suffix}!*'
+        headline = f'🔥 *OFERTA SELECIONADA {store_suffix}!*'
 
     short_title = _shorten_offer_title(details.get('title', ''))
     lines = [
@@ -2017,12 +2250,16 @@ def build_incoming_offer_message(details, coupon, affiliate_url):
         f'*{short_title}*',
     ]
     if original and discount_pct > 0:
-        lines.append(f'~R$ {original}~ → *R$ {price}* 💥')
+        lines.append(f'De ~R$ {original}~ por *R$ {price}* 💥')
     else:
-        lines.append(f'*R$ {price}* 💥')
+        lines.append(f'Por apenas *R$ {price}* 💥')
 
     if coupon:
-        lines.append(f'🎟️ Cupom: *{coupon}*')
+        lines.append(f'🎟️ *Ative o cupom na página:* {coupon}')
+
+    orig_low = (original_message or '').lower()
+    if 'pix' in orig_low:
+        lines.append('⚡ *Preço válido no Pix*')
 
     lines.append(f'👉 {affiliate_url}')
     return '\n'.join(lines)
@@ -2072,7 +2309,12 @@ def _store_product_and_publication(inbox, details, affiliate_url):
         except Exception:
             logger.warning('Falha ao sincronizar registro de AffiliateLink.', exc_info=True)
 
-        message = build_incoming_offer_message(details, inbox.coupon, affiliate_url)
+        message = build_incoming_offer_message(
+            details,
+            inbox.coupon,
+            affiliate_url,
+            original_message=inbox.original_message,
+        )
         publication = inbox.publication or product.publications.first()
         if publication is None:
             publication = Publication.objects.create(
@@ -2256,6 +2498,11 @@ def process_offer(inbox, browser, whatsapp_tab, affiliate_tab, target_groups, pu
         inbox.save(update_fields=[
             'status', 'affiliate_url', 'error_message', 'processed_at', 'published_at', 'updated_at',
         ])
+        try:
+            from .vitrine_sync import export_vitrine_json
+            export_vitrine_json(max_age_hours=48)
+        except Exception:
+            logger.warning('Falha ao atualizar ofertas.json da vitrine após publicação.', exc_info=True)
         return f'Oferta publicada: {title} ({publish_result})'
     except Exception as exc:
         logger.exception('Falha ao processar oferta recebida %s.', inbox.source_link)

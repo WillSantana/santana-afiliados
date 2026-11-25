@@ -256,6 +256,15 @@ class PublicationDelivery(models.Model):
         max_length=1000,
         verbose_name="Link de afiliado utilizado"
     )
+    is_bait = models.BooleanField(
+        default=False,
+        verbose_name="Oferta isca (captação VIP)"
+    )
+    tracking_channel = models.CharField(
+        max_length=32,
+        default='standard',
+        verbose_name="Canal / Sub-ID de rastreamento"
+    )
     status = models.CharField(
         max_length=24,
         choices=PublicationDeliveryStatus.choices,

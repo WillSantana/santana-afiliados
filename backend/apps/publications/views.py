@@ -393,6 +393,12 @@ class PublicationViewSet(viewsets.ModelViewSet):
             'recent_offers': IncomingAffiliateOfferSerializer(recent_offers, many=True).data,
         })
 
+    @action(detail=False, methods=['get'], url_path='vitrine')
+    def vitrine(self, request):
+        from .vitrine_sync import build_vitrine_offers_payload
+
+        return Response(build_vitrine_offers_payload(max_age_hours=48))
+
     @action(detail=False, methods=['post'], url_path='sync-clicks')
     def sync_clicks(self, request):
         from .click_sync import sync_official_click_stats
