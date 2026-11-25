@@ -1,10 +1,55 @@
 {
-  "generated_at": "2026-11-25T20:46:10.919328+00:00",
+  "generated_at": "2026-11-25T21:19:33.740799+00:00",
   "max_age_hours": 48,
   "vip_group_name": "Garimpo de Ofertas",
   "vip_invite_link": "https://chat.whatsapp.com/KZdtfAoUgzlImAVvrT8euC",
-  "total": 121,
+  "total": 120,
   "offers": [
+    {
+      "id": "1915",
+      "item_id": "MLB81046467",
+      "title": "Porta-Temperos Escadinha de Plástico para Gaveta e Bancada",
+      "price": 28.99,
+      "original_price": 49.99,
+      "discount_pct": 42,
+      "coupon": "",
+      "store": "mercadolivre",
+      "store_label": "Mercado Livre",
+      "category": "other",
+      "thumbnail": "https://http2.mlstatic.com/D_NQ_NP_864219-MLA120245726061_102026-O.webp",
+      "affiliate_url": "https://meli.la/2GsCeTd",
+      "published_at": "2026-11-25T21:03:07.253195+00:00"
+    },
+    {
+      "id": "1911",
+      "item_id": "MLB66276964",
+      "title": "Monitor Gamer Gigabyte 24.5 Gs25f14 Ss Ips 144hz 1ms Hdr10 Preto",
+      "price": 619.9,
+      "original_price": null,
+      "discount_pct": 0,
+      "coupon": "ELETROTECHMELI",
+      "store": "mercadolivre",
+      "store_label": "Mercado Livre",
+      "category": "other",
+      "thumbnail": "https://http2.mlstatic.com/D_NQ_NP_907845-MLA107526357970_032026-O.webp",
+      "affiliate_url": "https://meli.la/24x6SSL",
+      "published_at": "2026-11-25T20:57:44.441199+00:00"
+    },
+    {
+      "id": "1914",
+      "item_id": "MLB55024225",
+      "title": "Soprador De Ar Turbo 21v Portátil Bateria Recarregável Potente Para Folhas Pó Limpeza Carro Tso-21a The Black Tools",
+      "price": 119.9,
+      "original_price": 159.9,
+      "discount_pct": 25,
+      "coupon": "",
+      "store": "mercadolivre",
+      "store_label": "Mercado Livre",
+      "category": "other",
+      "thumbnail": "https://http2.mlstatic.com/D_NQ_NP_987154-MLA116188035225_082026-O.webp",
+      "affiliate_url": "https://meli.la/1h9jVZj",
+      "published_at": "2026-11-25T20:51:49.879931+00:00"
+    },
     {
       "id": "1912",
       "item_id": "AMZNB0FCYSBK1P",
@@ -18,7 +63,7 @@
       "category": "other",
       "thumbnail": "https://m.media-amazon.com/images/W/BW_MEDIAX_AVIF_MEASUREMENT_1306696-T4/images/I/51C+4scNFDL._AC_SL1280_.jpg",
       "affiliate_url": "https://www.amazon.com.br/dp/B0FCYSBK1P?tag=willjsantana-20",
-      "published_at": "2026-11-25T20:46:10.899283+00:00"
+      "published_at": "2026-11-25T20:46:26.638091+00:00"
     },
     {
       "id": "1906",
@@ -1759,66 +1804,6 @@
       "thumbnail": "https://http2.mlstatic.com/D_NQ_NP_659633-MLA117032776949_092026-O.webp",
       "affiliate_url": "https://meli.la/2ExpcE8",
       "published_at": "2026-11-23T23:19:55.360543+00:00"
-    },
-    {
-      "id": "1425",
-      "item_id": "MLB75733196",
-      "title": "Ssd Kingston Nv3 1tb M.2 Nvme Pcie 4.0 6000mb/s Leitura 4000",
-      "price": 1049.99,
-      "original_price": null,
-      "discount_pct": 0,
-      "coupon": "MELIGARANTE",
-      "store": "mercadolivre",
-      "store_label": "Mercado Livre",
-      "category": "other",
-      "thumbnail": "https://http2.mlstatic.com/D_NQ_NP_713919-MLA118031959716_102026-O.webp",
-      "affiliate_url": "https://meli.la/1o81gP7",
-      "published_at": "2026-11-23T23:16:29.008725+00:00"
-    },
-    {
-      "id": "1422",
-      "item_id": "MLB68708541",
-      "title": "Memória Ram Desktop 8gb 2666mhz Fury Beast",
-      "price": 386.75,
-      "original_price": 455.0,
-      "discount_pct": 15,
-      "coupon": "MELIGARANTE",
-      "store": "mercadolivre",
-      "store_label": "Mercado Livre",
-      "category": "other",
-      "thumbnail": "https://http2.mlstatic.com/D_NQ_NP_652523-MLA110047845088_042026-O.webp",
-      "affiliate_url": "https://meli.la/1UYJ6Ux",
-      "published_at": "2026-11-23T23:13:13.870357+00:00"
-    },
-    {
-      "id": "1417",
-      "item_id": "MLB26869319",
-      "title": "Ssd M.2 500gb Wd Green Sn350 2280 Nvme Pcie Gen 3.0 Wds500g2g0c Velocidade De Leitura 2400mb/s Para Pc E Notebook Cor Verde",
-      "price": 631.01,
-      "original_price": 709.0,
-      "discount_pct": 11,
-      "coupon": "MELIGARANTE",
-      "store": "mercadolivre",
-      "store_label": "Mercado Livre",
-      "category": "other",
-      "thumbnail": "https://http2.mlstatic.com/D_NQ_NP_662404-MLA99993222787_112025-O.webp",
-      "affiliate_url": "https://meli.la/1NFtYxT",
-      "published_at": "2026-11-23T23:09:58.876413+00:00"
-    },
-    {
-      "id": "1405",
-      "item_id": "MLB70526158",
-      "title": "Monitor Gamer Philips Evnia 27'' Ips 144Hz 0.5ms Fhd27m2n3200nf Preto",
-      "price": 597.08,
-      "original_price": null,
-      "discount_pct": 0,
-      "coupon": "MELIGARANTE",
-      "store": "mercadolivre",
-      "store_label": "Mercado Livre",
-      "category": "other",
-      "thumbnail": "https://http2.mlstatic.com/D_NQ_NP_997395-MLA114299889989_072026-O.webp",
-      "affiliate_url": "https://meli.la/1g8Uk8N",
-      "published_at": "2026-11-23T23:05:54.132825+00:00"
     }
   ]
 }
