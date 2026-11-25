@@ -1,10 +1,40 @@
 {
-  "generated_at": "2026-11-25T23:00:44.755964+00:00",
+  "generated_at": "2026-11-25T23:33:06.858402+00:00",
   "max_age_hours": 48,
   "vip_group_name": "Garimpo de Ofertas",
   "vip_invite_link": "https://chat.whatsapp.com/KZdtfAoUgzlImAVvrT8euC",
   "total": 120,
   "offers": [
+    {
+      "id": "1935",
+      "item_id": "MLB39410080",
+      "title": "Ssd Kingston Nv3 500gb M.2 2280 Nvme Pcie 4.0 5000mb/s",
+      "price": 649.7,
+      "original_price": 840.0,
+      "discount_pct": 23,
+      "coupon": "ELETROTECHMELI",
+      "store": "mercadolivre",
+      "store_label": "Mercado Livre",
+      "category": "other",
+      "thumbnail": "https://http2.mlstatic.com/D_NQ_NP_619509-MLA118552449350_102026-O.webp",
+      "affiliate_url": "https://meli.la/1GA6FdQ",
+      "published_at": "2026-11-25T23:20:11.200279+00:00"
+    },
+    {
+      "id": "1934",
+      "item_id": "MLB53228347",
+      "title": "Fone De Ouvido Preto Havit Gamenote Fuxi-h6 - Black",
+      "price": 208.9,
+      "original_price": 219.0,
+      "discount_pct": 5,
+      "coupon": "ELETROTECHMELI",
+      "store": "mercadolivre",
+      "store_label": "Mercado Livre",
+      "category": "other",
+      "thumbnail": "https://http2.mlstatic.com/D_NQ_NP_947213-MLA99416728000_112025-O.webp",
+      "affiliate_url": "https://meli.la/1B7jLpG",
+      "published_at": "2026-11-25T23:14:45.553686+00:00"
+    },
     {
       "id": "1925",
       "item_id": "MLB24310715",
@@ -1774,36 +1804,6 @@
       "thumbnail": "https://http2.mlstatic.com/D_NQ_NP_748787-MLA99800906319_112025-O.webp",
       "affiliate_url": "https://meli.la/2izv7mR",
       "published_at": "2026-11-24T00:06:28.582428+00:00"
-    },
-    {
-      "id": "1439",
-      "item_id": "MLB53451348",
-      "title": "Carro Jipe Elétrico Infantil Controle Remoto Pedal Sons Cor Vermelho",
-      "price": 789.9,
-      "original_price": 1609.9,
-      "discount_pct": 51,
-      "coupon": "",
-      "store": "mercadolivre",
-      "store_label": "Mercado Livre",
-      "category": "other",
-      "thumbnail": "https://http2.mlstatic.com/D_NQ_NP_829818-MLA96896549102_112025-O.webp",
-      "affiliate_url": "https://meli.la/2Cgeegj",
-      "published_at": "2026-11-24T00:03:11.016115+00:00"
-    },
-    {
-      "id": "1440",
-      "item_id": "AMZNB0DYBHNPZT",
-      "title": "Verden Bicicleta Infantil Casa Magica Da Gabby Aro 16 com cestinha e rodinhas de apoio",
-      "price": 449.65,
-      "original_price": 749.9,
-      "discount_pct": 40,
-      "coupon": "",
-      "store": "amazon",
-      "store_label": "Amazon",
-      "category": "other",
-      "thumbnail": "https://m.media-amazon.com/images/W/BW_MEDIAX_AVIF_MEASUREMENT_1306696-T4/images/I/7119qRsvfhL._AC_SL1500_.jpg",
-      "affiliate_url": "https://www.amazon.com.br/dp/B0DYBHNPZT?tag=willjsantana-20",
-      "published_at": "2026-11-23T23:55:40.378937+00:00"
     }
   ]
 }
