@@ -2099,22 +2099,58 @@ def publish_offer_in_whatsapp(browser, whatsapp_tab, target_groups, message, aff
                 is_vip_group = _is_group_match(group_name, vip_group_name) if vip_group_name else False
 
                 today_date = timezone.localdate()
-                if is_vip_group:
-                    vip_sent_today = PublicationDelivery.objects.filter(
+                open_group_daily_limit = max(1, int(getattr(settings, 'AFFILIATE_BOT_OPEN_GROUP_DAILY_LIMIT', 10)))
+                group_cooldown_minutes = max(0, int(getattr(settings, 'AFFILIATE_BOT_GROUP_MIN_COOLDOWN_MINUTES', 15)))
+                group_daily_limit = vip_daily_limit if is_vip_group else open_group_daily_limit
+
+                group_sent_today = PublicationDelivery.objects.filter(
+                    target_group_name=group_name,
+                    status=PublicationDeliveryStatus.SUCCESS,
+                    sent_at__date=today_date,
+                ).count()
+
+                if group_sent_today >= group_daily_limit:
+                    logger.info(
+                        'Grupo “%s” atingiu limite diário (%s/%s); pulando.',
+                        group_name,
+                        group_sent_today,
+                        group_daily_limit,
+                    )
+                    continue
+
+                if (getattr(settings, 'AFFILIATE_BOT_VIP_PEAK_WINDOWS', '') or '').strip():
+                    active_peak_win = get_active_vip_peak_window(group_daily_limit)
+                    if not active_peak_win:
+                        logger.info('Grupo “%s” fora dos horários de pico configurados; pulando.', group_name)
+                        continue
+                    win_start, win_end, win_quota = active_peak_win
+                    group_sent_window = PublicationDelivery.objects.filter(
                         target_group_name=group_name,
                         status=PublicationDeliveryStatus.SUCCESS,
-                        sent_at__date=today_date,
+                        sent_at__gte=win_start,
+                        sent_at__lte=win_end,
                     ).count()
-                    if vip_sent_today >= vip_daily_limit:
+                    if group_sent_window >= win_quota:
                         logger.info(
-                            'Grupo VIP “%s” atingiu limite diário (%s/%s); pulando.',
+                            'Grupo “%s” atingiu cota da janela atual (%s/%s); reservando saldo para próximos períodos.',
                             group_name,
-                            vip_sent_today,
-                            vip_daily_limit,
+                            group_sent_window,
+                            win_quota,
                         )
                         continue
-                    if not is_within_vip_peak_window():
-                        logger.info('Grupo VIP “%s” fora dos horários de pico; pulando.', group_name)
+
+                if group_cooldown_minutes > 0:
+                    cooldown_since = timezone.now() - timedelta(minutes=group_cooldown_minutes)
+                    if PublicationDelivery.objects.filter(
+                        target_group_name=group_name,
+                        status=PublicationDeliveryStatus.SUCCESS,
+                        sent_at__gte=cooldown_since,
+                    ).exists():
+                        logger.info(
+                            'Grupo “%s” recebeu oferta há menos de %s min; aguardando intervalo anti-spam.',
+                            group_name,
+                            group_cooldown_minutes,
+                        )
                         continue
 
                 # Calcula desconto e define se envia como Oferta Isca (captação VIP) ou normal
@@ -2167,6 +2203,13 @@ def publish_offer_in_whatsapp(browser, whatsapp_tab, target_groups, message, aff
                         if tracked_url != affiliate_url
                         else message
                     )
+                    if not is_vip_group and vip_invite_link and vip_invite_link not in outgoing_message:
+                        vip_label = (vip_group_name or 'GARIMPO DE OFERTAS').upper()
+                        outgoing_message = (
+                            f'{outgoing_message}\n\n'
+                            f'🔥 *Receba mais ofertas como essa no nosso grupo VIP {vip_label}:*\n'
+                            f'{vip_invite_link}'
+                        )
 
                 _publish_offer_to_group(
                     browser,
@@ -2273,16 +2316,17 @@ def apply_tracking_subid(affiliate_url, store=STORE_MERCADOLIVRE, channel='stand
     return affiliate_url
 
 
-def is_within_vip_peak_window(now=None):
+def get_active_vip_peak_window(vip_daily_limit, now=None):
     """
-    Verifica se o horário atual está dentro das janelas de pico do grupo oficial
-    GARIMPO DE OFERTAS (padrão: 08:00-09:00, 12:00-13:30, 19:00-22:00).
+    Retorna (window_start_dt, window_end_dt, window_quota) se o horário atual estiver dentro
+    de uma janela de pico do grupo VIP, dividindo a cota diária entre os períodos do dia
+    (ex: 10/dia em 3 janelas => 3 manhã, 3 almoço, 4 noite) para sempre haver publicações.
     """
     raw = (getattr(settings, 'AFFILIATE_BOT_VIP_PEAK_WINDOWS', '') or '').strip()
     if not raw:
-        return True
+        return None
     local_now = timezone.localtime(now or timezone.now())
-    now_mins = local_now.hour * 60 + local_now.minute
+    parsed_windows = []
     for chunk in raw.split(','):
         part = chunk.strip()
         if '-' not in part:
@@ -2293,9 +2337,34 @@ def is_within_vip_peak_window(now=None):
             eh, em = [int(x) for x in end_s.strip().split(':')]
         except ValueError:
             continue
+        parsed_windows.append((sh, sm, eh, em))
+
+    if not parsed_windows:
+        return None
+
+    total_windows = len(parsed_windows)
+    base_quota = max(1, vip_daily_limit // total_windows)
+    remainder = max(0, vip_daily_limit - (base_quota * total_windows))
+    now_mins = local_now.hour * 60 + local_now.minute
+
+    for idx, (sh, sm, eh, em) in enumerate(parsed_windows):
         if (sh * 60 + sm) <= now_mins <= (eh * 60 + em):
-            return True
-    return False
+            quota = base_quota + (remainder if idx == total_windows - 1 else 0)
+            start_dt = local_now.replace(hour=sh, minute=sm, second=0, microsecond=0)
+            end_dt = local_now.replace(hour=eh, minute=em, second=59, microsecond=999999)
+            return start_dt, end_dt, quota
+    return None
+
+
+def is_within_vip_peak_window(now=None):
+    """
+    Verifica se o horário atual está dentro das janelas de pico do grupo oficial
+    GARIMPO DE OFERTAS (padrão: 08:00-09:00, 12:00-13:30, 19:00-22:00).
+    """
+    raw = (getattr(settings, 'AFFILIATE_BOT_VIP_PEAK_WINDOWS', '') or '').strip()
+    if not raw:
+        return True
+    return get_active_vip_peak_window(12, now=now) is not None
 
 
 def build_bait_offer_message(details, coupon, affiliate_url, invite_link=''):
