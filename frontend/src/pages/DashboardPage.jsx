@@ -151,8 +151,22 @@ export default function DashboardPage({ onNavigateTab }) {
         </div>
       )}
 
-      {/* 4 KPIs Principais em cards individuais */}
-      <div className="dash-kpi-grid">
+      {/* 5 KPIs Principais em cards individuais */}
+      <div className="dash-kpi-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(175px, 1fr))' }}>
+        <div className="dash-kpi-card">
+          <div className="dash-kpi-label">Inscritos · Grupo VIP</div>
+          <div className="dash-kpi-value" style={{ color: '#047857' }}>
+            {funnelSummary.vip_members_count ?? '—'}
+          </div>
+          <div className="dash-kpi-sub">
+            {funnelSummary.vip_members_count != null
+              ? (funnelSummary.vip_members_joined_today > 0
+                  ? `+${funnelSummary.vip_members_joined_today} entraram hoje`
+                  : (funnelSummary.vip_group_name || 'Garimpo de Ofertas'))
+              : 'Aguardando leitura do WhatsApp'}
+          </div>
+        </div>
+
         <div className="dash-kpi-card">
           <div className="dash-kpi-label">Cliques Oficiais</div>
           <div className="dash-kpi-value">{clicksSummary.total_clicks ?? 0}</div>

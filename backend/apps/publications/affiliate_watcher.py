@@ -1983,8 +1983,18 @@ def sync_vip_group_members_count(browser, whatsapp_tab):
 
     try:
         browser.switch_to.window(whatsapp_tab)
-        open_whatsapp_group(browser, group_obj.name)
-        time.sleep(1.0)
+        try:
+            ActionChains(browser).send_keys(Keys.ESCAPE).perform()
+            time.sleep(0.25)
+            ActionChains(browser).send_keys(Keys.ESCAPE).perform()
+            time.sleep(0.25)
+        except Exception:
+            pass
+
+        current_header = _get_active_chat_header(browser)
+        if not _is_group_match(current_header, group_obj.name):
+            open_whatsapp_group(browser, group_obj.name)
+            time.sleep(1.0)
 
         # Clica no cabeçalho da conversa para abrir os Dados do Grupo
         browser.execute_script(
@@ -1996,11 +2006,11 @@ def sync_vip_group_members_count(browser, whatsapp_tab):
             return true;
             """
         )
-        time.sleep(1.5)
+        time.sleep(1.8)
 
         raw_text = browser.execute_script(
             """
-            const panels = Array.from(document.querySelectorAll('section, aside, [data-testid="chat-info-drawer"], #app'));
+            const panels = Array.from(document.querySelectorAll('section, aside, [data-testid="chat-info-drawer"], #main, #app'));
             const texts = panels.map(el => (el.innerText || '')).filter(Boolean);
             return texts.join('\\n');
             """

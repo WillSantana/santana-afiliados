@@ -12,6 +12,6 @@
   ],
   "rewrites": [
     { "source": "/oferta/:id", "destination": "/api/oferta?id=:id" },
-    { "source": "/((?!api/).*)", "destination": "/index.html" }
+    { "source": "/((?!api/|assets/|.*\\..*).*)", "destination": "/index.html" }
   ]
 }
