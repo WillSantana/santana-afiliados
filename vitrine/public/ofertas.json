@@ -1,10 +1,40 @@
 {
-  "generated_at": "2026-11-25T19:56:49.230401+00:00",
+  "generated_at": "2026-11-25T20:18:41.225006+00:00",
   "max_age_hours": 48,
   "vip_group_name": "Garimpo de Ofertas",
   "vip_invite_link": "https://chat.whatsapp.com/KZdtfAoUgzlImAVvrT8euC",
-  "total": 120,
+  "total": 121,
   "offers": [
+    {
+      "id": "1901",
+      "item_id": "AMZNB0H6N4P465",
+      "title": "Samsung Smart TV 70\" Crystal UHD 4K U8000H 2027",
+      "price": 3799.0,
+      "original_price": 5199.0,
+      "discount_pct": 27,
+      "coupon": "",
+      "store": "amazon",
+      "store_label": "Amazon",
+      "category": "other",
+      "thumbnail": "https://m.media-amazon.com/images/W/BW_MEDIAX_AVIF_MEASUREMENT_1306696-T4/images/I/51Sg1BAA14L._AC_SL1000_.jpg",
+      "affiliate_url": "https://www.amazon.com.br/dp/B0H6N4P465?tag=willjsantana-20",
+      "published_at": "2026-11-25T20:18:41.203257+00:00"
+    },
+    {
+      "id": "1899",
+      "item_id": "MLB61608974",
+      "title": "Nac 600mg 120 Cápsulas 4 Meses De Uso, Longa Duração 2x Mais, Com Molibdênio E Selênio, Fortalvit Sem Sabor",
+      "price": 69.34,
+      "original_price": 96.9,
+      "discount_pct": 28,
+      "coupon": "",
+      "store": "mercadolivre",
+      "store_label": "Mercado Livre",
+      "category": "other",
+      "thumbnail": "https://http2.mlstatic.com/D_NQ_NP_893236-MLA109232002618_042026-O.webp",
+      "affiliate_url": "https://meli.la/33EVwV3",
+      "published_at": "2026-11-25T20:01:55.548899+00:00"
+    },
     {
       "id": "1863",
       "item_id": "MLB53189576",
@@ -1789,21 +1819,6 @@
       "thumbnail": "https://http2.mlstatic.com/D_NQ_NP_679416-MLA120376427532_112026-O.webp",
       "affiliate_url": "https://meli.la/1Ni3htg",
       "published_at": "2026-11-23T22:59:23.354943+00:00"
-    },
-    {
-      "id": "1418",
-      "item_id": "MLB4010491777",
-      "title": "Blusa Fitness Com Transparência Em Tule Esportiva",
-      "price": 29.99,
-      "original_price": 49.99,
-      "discount_pct": 40,
-      "coupon": "",
-      "store": "mercadolivre",
-      "store_label": "Mercado Livre",
-      "category": "other",
-      "thumbnail": "https://http2.mlstatic.com/D_NQ_NP_821011-MLB116743509868_092026-O-blusa-fitness-com-transparncia-em-tule-esportiva.webp",
-      "affiliate_url": "https://meli.la/1UG8ojB",
-      "published_at": "2026-11-23T22:55:00.083539+00:00"
     }
   ]
 }
