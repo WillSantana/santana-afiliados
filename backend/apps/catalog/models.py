@@ -204,6 +204,7 @@ class ProductOffer(models.Model):
         """
         Calcula pontuação de oportunidade de acordo com a Seção 3.3 da especificação:
         - Preço dentro do orçamento (até R$ 200): 20 pts
+        - Bônus de ticket de impulso (R$ 30 a R$ 150): +12 pts
         - Reputação do vendedor (verde): 20 pts
         - Produto novo e ativo: 15 pts
         - Competitividade do preço (desconto verificável): até 20 pts
@@ -213,11 +214,14 @@ class ProductOffer(models.Model):
         """
         calculated_score = 0
 
-        # 1. Preço dentro do orçamento (até R$ 200 preferencial)
+        # 1. Preço dentro do orçamento (até R$ 200 preferencial) + bônus de compra por impulso (R$ 30–R$ 150)
         if self.price <= 200:
             calculated_score += 20
         elif self.price <= 350:
             calculated_score += 10
+
+        if 30 <= self.price <= 150:
+            calculated_score += 12
 
         # 2. Reputação do vendedor
         if self.seller_reputation in ['green', 'platinum', 'gold']:

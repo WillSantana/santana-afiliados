@@ -344,6 +344,17 @@ export default function DashboardPage({ onNavigateTab }) {
             {/* Mini-stats limpos (sem emojis) */}
             <div className="dash-mini-stats">
               <div className="dash-mini-stat">
+                <span className="dash-mini-stat-label">Membros VIP</span>
+                <span className="dash-mini-stat-value">
+                  {funnelSummary.vip_members_count ?? '—'}
+                  {funnelSummary.vip_members_joined_today > 0 && (
+                    <span style={{ fontSize: '0.72rem', fontWeight: 600, color: '#059669', marginLeft: '0.3rem' }}>
+                      +{funnelSummary.vip_members_joined_today} hoje
+                    </span>
+                  )}
+                </span>
+              </div>
+              <div className="dash-mini-stat">
                 <span className="dash-mini-stat-label">Ofertas Isca hoje</span>
                 <span className="dash-mini-stat-value">{funnelSummary.bait_sent_today ?? 0}</span>
               </div>

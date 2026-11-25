@@ -365,6 +365,17 @@ class PublicationViewSet(viewsets.ModelViewSet):
             sent_at__date=today,
         ).count()
 
+        vip_group_obj = WhatsAppGroup.objects.filter(name__iexact=vip_group_name).first() if vip_group_name else None
+        vip_members_count = vip_group_obj.members_count if vip_group_obj else None
+        vip_members_joined_today = None
+        if (
+            vip_group_obj
+            and vip_group_obj.members_count is not None
+            and vip_group_obj.members_day_start_count is not None
+            and vip_group_obj.members_day_start_date == today
+        ):
+            vip_members_joined_today = max(0, vip_group_obj.members_count - vip_group_obj.members_day_start_count)
+
         recent_deliveries = PublicationDelivery.objects.select_related('publication__product').order_by('-sent_at')[:20]
         recent_offers = all_offers.select_related('product').order_by('-received_at')[:15]
 
@@ -387,6 +398,13 @@ class PublicationViewSet(viewsets.ModelViewSet):
                 'vip_sent_today': vip_sent_today,
                 'vip_daily_limit': getattr(settings, 'AFFILIATE_BOT_VIP_DAILY_LIMIT', 12),
                 'vip_group_name': vip_group_name,
+                'vip_members_count': vip_members_count,
+                'vip_members_joined_today': vip_members_joined_today,
+                'vip_members_updated_at': (
+                    vip_group_obj.members_updated_at.isoformat()
+                    if vip_group_obj and vip_group_obj.members_updated_at
+                    else None
+                ),
                 'vitrine_url': getattr(settings, 'AFFILIATE_BOT_VITRINE_BASE_URL', ''),
             },
             'metrics': {

@@ -59,6 +59,26 @@ class WhatsAppGroup(models.Model):
         default=False,
         verbose_name='Envio autorizado',
     )
+    members_count = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        verbose_name='Total de membros',
+    )
+    members_day_start_count = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        verbose_name='Membros no início do dia',
+    )
+    members_day_start_date = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name='Data da referência diária de membros',
+    )
+    members_updated_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name='Última leitura de membros',
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

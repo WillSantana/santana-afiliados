@@ -290,6 +290,13 @@ class Command(BaseCommand):
                             self.stdout.write(
                                 self.style.WARNING(f'Aviso ao sincronizar vitrine online: {v_exc}')
                             )
+                        try:
+                            from apps.publications.affiliate_watcher import sync_vip_group_members_count
+                            sync_vip_group_members_count(browser, whatsapp_tab)
+                        except Exception as m_exc:
+                            self.stdout.write(
+                                self.style.WARNING(f'Aviso ao ler membros do grupo VIP: {m_exc}')
+                            )
                         last_clicks_sync_ts = time.monotonic()
                     except Exception as exc:
                         last_clicks_sync_ts = time.monotonic()

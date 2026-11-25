@@ -1942,6 +1942,106 @@ def select_balanced_target_groups(target_groups, store=None, max_lead=None):
     return priority_groups, overflow_groups
 
 
+def resolve_whatsapp_dispatch_url(affiliate_url, store, inbox=None, channel=''):
+    """
+    Compliance por loja:
+    - Amazon: roteia para a página individual na Vitrine Pública (https://.../oferta/<id>)
+      para que o Referer chegue à Amazon a partir do site público cadastrado.
+    - Mercado Livre / Shopee / TikTok: envia o link direto de afiliado com Sub-ID.
+    """
+    tracked_url = apply_tracking_subid(
+        affiliate_url,
+        store=store or STORE_MERCADOLIVRE,
+        channel=channel,
+    )
+    if (store or '').strip().lower() == STORE_AMAZON and inbox is not None and getattr(inbox, 'id', None):
+        from .vitrine_sync import build_vitrine_offer_url
+        vitrine_url = build_vitrine_offer_url(inbox.id)
+        if vitrine_url:
+            return vitrine_url
+    return tracked_url
+
+
+def sync_vip_group_members_count(browser, whatsapp_tab):
+    """
+    Lê a quantidade atual de membros do grupo VIP (ex: Garimpo de Ofertas) no WhatsApp Web
+    e salva em WhatsAppGroup (total + referência de início do dia para calcular entradas hoje).
+    """
+    from .models import WhatsAppGroup
+
+    vip_group_name = (getattr(settings, 'AFFILIATE_BOT_VIP_GROUP_NAME', 'Garimpo de Ofertas') or '').strip()
+    if not vip_group_name:
+        return None
+
+    group_obj = None
+    for candidate in WhatsAppGroup.objects.all():
+        if _is_group_match(candidate.name, vip_group_name):
+            group_obj = candidate
+            break
+    if not group_obj:
+        return None
+
+    try:
+        browser.switch_to.window(whatsapp_tab)
+        open_whatsapp_group(browser, group_obj.name)
+        time.sleep(1.0)
+
+        # Clica no cabeçalho da conversa para abrir os Dados do Grupo
+        browser.execute_script(
+            """
+            const header = document.querySelector('#main header');
+            if (!header) return false;
+            const clickable = header.querySelector('[role="button"]') || header;
+            clickable.click();
+            return true;
+            """
+        )
+        time.sleep(1.5)
+
+        raw_text = browser.execute_script(
+            """
+            const panels = Array.from(document.querySelectorAll('section, aside, [data-testid="chat-info-drawer"], #app'));
+            const texts = panels.map(el => (el.innerText || '')).filter(Boolean);
+            return texts.join('\\n');
+            """
+        ) or ''
+
+        # Fecha o painel de informações do grupo com ESC
+        try:
+            ActionChains(browser).send_keys(Keys.ESCAPE).perform()
+            time.sleep(0.3)
+        except Exception:
+            pass
+
+        match = re.search(
+            r'(\d[\d\.\,]*)\s*(?:membros?|participantes?|members?|participants?)',
+            raw_text,
+            flags=re.IGNORECASE,
+        )
+        if not match:
+            return None
+
+        count_digits = re.sub(r'[^\d]', '', match.group(1))
+        if not count_digits:
+            return None
+        members_count = int(count_digits)
+
+        today = timezone.localdate()
+        update_fields = ['members_count', 'members_updated_at', 'updated_at']
+        group_obj.members_count = members_count
+        group_obj.members_updated_at = timezone.now()
+        if group_obj.members_day_start_date != today or group_obj.members_day_start_count is None:
+            group_obj.members_day_start_date = today
+            group_obj.members_day_start_count = members_count
+            update_fields.extend(['members_day_start_date', 'members_day_start_count'])
+        group_obj.save(update_fields=update_fields)
+        logger.info('Membros do grupo VIP “%s” sincronizados: %s', group_obj.name, members_count)
+        return members_count
+    except Exception:
+        logger.warning('Não foi possível ler o número de membros do grupo VIP.', exc_info=True)
+        return None
+
+
 def publish_offer_in_whatsapp(browser, whatsapp_tab, target_groups, message, affiliate_url, inbox=None, publication=None):
     """
     Publica a oferta nos grupos de destino autorizados, aplicando distribuição equilibrada
@@ -2033,9 +2133,10 @@ def publish_offer_in_whatsapp(browser, whatsapp_tab, target_groups, message, aff
                         use_bait = True
                         tracking_channel = 'captacao_aberta'
 
-                tracked_url = apply_tracking_subid(
+                tracked_url = resolve_whatsapp_dispatch_url(
                     affiliate_url,
                     store=offer_store or STORE_MERCADOLIVRE,
+                    inbox=inbox,
                     channel=tracking_channel,
                 )
                 if use_bait and prod_obj is not None:
@@ -2472,6 +2573,19 @@ def process_offer(inbox, browser, whatsapp_tab, affiliate_tab, target_groups, pu
             inbox.processed_at = timezone.now()
             inbox.save(update_fields=['status', 'affiliate_url', 'error_message', 'processed_at', 'updated_at'])
             return f'Oferta preparada sem envio: {title}'
+
+        # Compliance Amazon: garante que a oferta já está publicada na Vitrine antes do disparo no WhatsApp
+        offer_store_final = (inbox.store or (product.store if product else '') or '').strip().lower()
+        if offer_store_final == STORE_AMAZON and getattr(settings, 'AFFILIATE_BOT_VITRINE_BASE_URL', ''):
+            try:
+                from .vitrine_sync import sync_vitrine_to_github
+                if not inbox.affiliate_url:
+                    inbox.affiliate_url = affiliate_url
+                pushed_now = sync_vitrine_to_github(max_age_hours=48, extra_offer=inbox)
+                if pushed_now:
+                    time.sleep(12)
+            except Exception:
+                logger.warning('Falha ao pré-sincronizar oferta Amazon na vitrine antes do envio.', exc_info=True)
 
         try:
             publish_result = publish_offer_in_whatsapp(
