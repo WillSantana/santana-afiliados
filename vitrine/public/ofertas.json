@@ -1,10 +1,40 @@
 {
-  "generated_at": "2026-11-25T14:26:57.027221+00:00",
+  "generated_at": "2026-11-25T17:29:39.802274+00:00",
   "max_age_hours": 48,
   "vip_group_name": "Garimpo de Ofertas",
   "vip_invite_link": "https://chat.whatsapp.com/KZdtfAoUgzlImAVvrT8euC",
   "total": 120,
   "offers": [
+    {
+      "id": "1834",
+      "item_id": "AMZNB09B8W3KQP",
+      "title": "Máquina de Lavar Electrolux 15kg Branca Essential Care com Cesto Inox e Jet&Clean (LED15) - 127V",
+      "price": 1749.0,
+      "original_price": 3159.0,
+      "discount_pct": 45,
+      "coupon": "",
+      "store": "amazon",
+      "store_label": "Amazon",
+      "category": "other",
+      "thumbnail": "https://m.media-amazon.com/images/W/BW_MEDIAX_AVIF_MEASUREMENT_1306696-T4/images/I/41pS08Q7EoL._AC_SL1000_.jpg",
+      "affiliate_url": "https://www.amazon.com.br/dp/B09B8W3KQP?tag=willjsantana-20",
+      "published_at": "2026-11-25T15:33:41.175047+00:00"
+    },
+    {
+      "id": "1797",
+      "item_id": "MLB50981260",
+      "title": "Fone De Ouvido Soundcore P20i Bluetooth 5.3 Grave Potente Drivers 10mm 30h Bateria Carregamento Rápido App Personalização De Som Via App Ipx5 2 Mics Ia Para Chamadas Claras Case Compacto Cor Rosa",
+      "price": 125.0,
+      "original_price": 299.0,
+      "discount_pct": 58,
+      "coupon": "",
+      "store": "mercadolivre",
+      "store_label": "Mercado Livre",
+      "category": "other",
+      "thumbnail": "https://http2.mlstatic.com/D_NQ_NP_931124-MLA96133477503_102025-O.webp",
+      "affiliate_url": "https://meli.la/2hd93Qq",
+      "published_at": "2026-11-25T14:48:36.711309+00:00"
+    },
     {
       "id": "1787",
       "item_id": "MLB79122574",
@@ -1774,36 +1804,6 @@
       "thumbnail": "https://m.media-amazon.com/images/W/BW_MEDIAX_AVIF_MEASUREMENT_1306696-T4/images/I/71rq8UFkcvL._AC_SL1500_.jpg",
       "affiliate_url": "https://www.amazon.com.br/dp/B0F6CX2QK4?tag=willjsantana-20",
       "published_at": "2026-11-23T20:06:15.250244+00:00"
-    },
-    {
-      "id": "1246",
-      "item_id": "MLB61988153",
-      "title": "Mesa de Jantar Redonda 90cm Mel Viero Flipp Slim Tampo MDF Base Robusta Moderna 2 a 4 Pessoas Cozinha Sala Refeição Design Amadeirado",
-      "price": 318.0,
-      "original_price": 699.0,
-      "discount_pct": 55,
-      "coupon": "",
-      "store": "mercadolivre",
-      "store_label": "Mercado Livre",
-      "category": "other",
-      "thumbnail": "https://http2.mlstatic.com/D_NQ_NP_711108-MLA117542969563_092026-O.webp",
-      "affiliate_url": "https://meli.la/17AuXSm",
-      "published_at": "2026-11-23T20:02:07.693602+00:00"
-    },
-    {
-      "id": "1243",
-      "item_id": "MLB48410406",
-      "title": "Liquidificador Haiz Mini Shake Take 380ml 20w Cor",
-      "price": 29.99,
-      "original_price": 78.39,
-      "discount_pct": 62,
-      "coupon": "",
-      "store": "mercadolivre",
-      "store_label": "Mercado Livre",
-      "category": "other",
-      "thumbnail": "https://http2.mlstatic.com/D_NQ_NP_678341-MLA100014317955_122025-O.webp",
-      "affiliate_url": "https://meli.la/1rDH7Hf",
-      "published_at": "2026-11-23T19:51:27.432550+00:00"
     }
   ]
 }
