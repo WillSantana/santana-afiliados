@@ -1,10 +1,25 @@
 {
-  "generated_at": "2026-11-25T20:18:41.225006+00:00",
+  "generated_at": "2026-11-25T20:45:47.211179+00:00",
   "max_age_hours": 48,
   "vip_group_name": "Garimpo de Ofertas",
   "vip_invite_link": "https://chat.whatsapp.com/KZdtfAoUgzlImAVvrT8euC",
-  "total": 121,
+  "total": 120,
   "offers": [
+    {
+      "id": "1906",
+      "item_id": "MLB43972987",
+      "title": "Sofá 3 Lugares Retrátil Lubeck Linho Cinza",
+      "price": 649.99,
+      "original_price": 1089.99,
+      "discount_pct": 40,
+      "coupon": "",
+      "store": "mercadolivre",
+      "store_label": "Mercado Livre",
+      "category": "other",
+      "thumbnail": "https://http2.mlstatic.com/D_NQ_NP_857949-MLA116553275397_082026-O.webp",
+      "affiliate_url": "https://meli.la/1Bk65gs",
+      "published_at": "2026-11-25T20:24:55.016511+00:00"
+    },
     {
       "id": "1901",
       "item_id": "AMZNB0H6N4P465",
@@ -18,7 +33,7 @@
       "category": "other",
       "thumbnail": "https://m.media-amazon.com/images/W/BW_MEDIAX_AVIF_MEASUREMENT_1306696-T4/images/I/51Sg1BAA14L._AC_SL1000_.jpg",
       "affiliate_url": "https://www.amazon.com.br/dp/B0H6N4P465?tag=willjsantana-20",
-      "published_at": "2026-11-25T20:18:41.203257+00:00"
+      "published_at": "2026-11-25T20:18:58.515326+00:00"
     },
     {
       "id": "1899",
@@ -1789,36 +1804,6 @@
       "thumbnail": "https://http2.mlstatic.com/D_NQ_NP_997395-MLA114299889989_072026-O.webp",
       "affiliate_url": "https://meli.la/1g8Uk8N",
       "published_at": "2026-11-23T23:05:54.132825+00:00"
-    },
-    {
-      "id": "1404",
-      "item_id": "MLB65560106",
-      "title": "Celular Samsung Galaxy S26 5G, 256GB, 12GB RAM, Galaxy AI, Câmera Tripla de 50+12+10, Tela de 6.3\" Preto",
-      "price": 3998.7,
-      "original_price": null,
-      "discount_pct": 0,
-      "coupon": "OFFPRATECH",
-      "store": "mercadolivre",
-      "store_label": "Mercado Livre",
-      "category": "other",
-      "thumbnail": "https://http2.mlstatic.com/D_NQ_NP_615210-MLA109050269404_032026-O.webp",
-      "affiliate_url": "https://meli.la/2gc6uSP",
-      "published_at": "2026-11-23T23:02:39.662325+00:00"
-    },
-    {
-      "id": "1402",
-      "item_id": "MLB66527128",
-      "title": "Escova Alisadora a Vapor Wavytalk Steamline Pro 3 em 1 Anti-Frizz Nutrição e Menos Danos para Cabelo Crespo Resultado de Salão Rápido",
-      "price": 387.99,
-      "original_price": 599.99,
-      "discount_pct": 35,
-      "coupon": "",
-      "store": "mercadolivre",
-      "store_label": "Mercado Livre",
-      "category": "other",
-      "thumbnail": "https://http2.mlstatic.com/D_NQ_NP_679416-MLA120376427532_112026-O.webp",
-      "affiliate_url": "https://meli.la/1Ni3htg",
-      "published_at": "2026-11-23T22:59:23.354943+00:00"
     }
   ]
 }
