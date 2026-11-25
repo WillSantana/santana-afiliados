@@ -73,6 +73,13 @@ class WhatsAppSendUncertainError(AffiliateAutomationError):
     pass
 
 
+class GroupAdminOnlySkip(Exception):
+    """Grupo trancado para administradores: pular envio sem registrar falha."""
+
+
+_ADMIN_ONLY_SKIP_UNTIL = {}
+
+
 def extract_mercadolivre_links(text):
     """
     Identifica links meli.la e links tradicionais do Mercado Livre,
@@ -402,6 +409,8 @@ def _normalize_group_name(name):
         ch for ch in unicodedata.normalize('NFKD', cleaned)
         if not unicodedata.combining(ch)
     )
+    # Normaliza espaços em torno de símbolos (&, -, /, |) — ex.: "Vendas&rolos" == "Vendas & Rolos"
+    cleaned = re.sub(r'\s*([&/\-|])\s*', r' \1 ', cleaned)
     cleaned = re.sub(r'\s+', ' ', cleaned).strip().lower()
     return cleaned
 
@@ -1608,7 +1617,7 @@ def _publish_offer_to_group(browser, whatsapp_tab, target_group, message, affili
     if not _is_group_match(opened_group, target_group):
         raise AffiliateAutomationError(f'Grupo de destino “{target_group}” não pôde ser confirmado no WhatsApp.')
 
-    # Detecção rápida de grupo fechado / somente administradores (evita esperar 20s)
+    # Detecção rápida de grupo fechado / somente administradores (pula sem gerar erro)
     try:
         footer_text = (browser.execute_script("""
             const footer = document.querySelector('#main footer');
@@ -1617,15 +1626,17 @@ def _publish_offer_to_group(browser, whatsapp_tab, target_group, message, affili
         if any(phrase in footer_text for phrase in (
             'somente admins',
             'apenas admins',
+            'somente administradores',
+            'apenas administradores',
             'only admins',
             'você não pode enviar mensagens',
             'voce nao pode enviar mensagens',
             "you can't send messages",
         )):
-            raise AffiliateAutomationError(
-                f'O grupo “{target_group}” está fechado ou permite envio apenas para administradores.'
+            raise GroupAdminOnlySkip(
+                f'Grupo “{target_group}” está trancado para administradores; envio pulado.'
             )
-    except AffiliateAutomationError:
+    except GroupAdminOnlySkip:
         raise
     except Exception:
         pass
@@ -1646,7 +1657,16 @@ def _publish_offer_to_group(browser, whatsapp_tab, target_group, message, affili
         comp.send_keys(Keys.SPACE)
         return comp
 
-    composer = WebDriverWait(browser, 20).until(_message_composer)
+    try:
+        composer = WebDriverWait(browser, 12).until(_message_composer)
+    except TimeoutException as exc:
+        if _is_group_match(_current_group_name(browser), target_group):
+            raise GroupAdminOnlySkip(
+                f'Grupo “{target_group}” sem caixa de mensagem disponível (trancado para administradores); envio pulado.'
+            ) from exc
+        raise AffiliateAutomationError(
+            f'Campo de mensagem não ficou disponível em “{target_group}”.'
+        ) from exc
     _type_full_message()
 
     # Aguarda até 12s pela prévia com imagem no WhatsApp Web; se não carregar, tenta mais uma vez
@@ -1720,10 +1740,14 @@ def select_balanced_target_groups(target_groups, store=None, max_lead=None):
     if max_lead is None:
         max_lead = max(0, int(getattr(settings, 'AFFILIATE_BOT_MAX_GROUP_LEAD', 1)))
 
+    now_mono = time.monotonic()
     eligible = []
     for item in target_groups:
         group_name = item['name'] if isinstance(item, dict) else item
         if not group_name or is_blocked_send_group(group_name):
+            continue
+        skip_until = _ADMIN_ONLY_SKIP_UNTIL.get(group_name, 0.0)
+        if skip_until > now_mono:
             continue
         eligible.append(item)
 
@@ -1731,7 +1755,58 @@ def select_balanced_target_groups(target_groups, store=None, max_lead=None):
         return eligible, []
 
     today = timezone.localdate()
+    now = timezone.now()
+    cooldown_minutes = max(5, int(getattr(settings, 'AFFILIATE_BOT_GROUP_COOLDOWN_MINUTES', 60)))
+    cooldown_threshold = max(2, int(getattr(settings, 'AFFILIATE_BOT_GROUP_COOLDOWN_FAILURES', 3)))
+    cooldown_cutoff = now - timedelta(minutes=cooldown_minutes)
+
     eligible_names = [item['name'] if isinstance(item, dict) else item for item in eligible]
+
+    # Circuit breaker: se um grupo falhou N vezes seguidas recentemente (ex.: fechado só p/ admins
+    # ou nome não encontrado), entra em pausa automática por `cooldown_minutes` para não gerar
+    # dezenas de falhas repetidas nem desperdiçar tempo de envio.
+    recent_global = (
+        PublicationDelivery.objects.filter(
+            target_group_name__in=eligible_names,
+            sent_at__gte=now - timedelta(hours=6),
+        )
+        .order_by('-sent_at', '-id')
+        .values_list('target_group_name', 'status', 'sent_at')
+    )
+    consecutive_failures = {}
+    last_failure_at = {}
+    stopped_counting = set()
+    for g_name, g_status, g_sent_at in recent_global:
+        if g_name in stopped_counting:
+            continue
+        if g_status == PublicationDeliveryStatus.FAILED:
+            consecutive_failures[g_name] = consecutive_failures.get(g_name, 0) + 1
+            if g_name not in last_failure_at:
+                last_failure_at[g_name] = g_sent_at
+        else:
+            stopped_counting.add(g_name)
+
+    cooled_down_names = {
+        g_name
+        for g_name, fail_count in consecutive_failures.items()
+        if fail_count >= cooldown_threshold
+        and last_failure_at.get(g_name)
+        and last_failure_at[g_name] >= cooldown_cutoff
+    }
+    if cooled_down_names:
+        active_eligible = [
+            item for item in eligible
+            if (item['name'] if isinstance(item, dict) else item) not in cooled_down_names
+        ]
+        if active_eligible:
+            logger.info(
+                'Grupos em pausa automática (cooldown %s min após %s+ falhas seguidas): %s',
+                cooldown_minutes,
+                cooldown_threshold,
+                ', '.join(sorted(cooled_down_names)),
+            )
+            eligible = active_eligible
+            eligible_names = [item['name'] if isinstance(item, dict) else item for item in eligible]
 
     deliveries_qs = PublicationDelivery.objects.filter(
         target_group_name__in=eligible_names,
@@ -1857,7 +1932,16 @@ def publish_offer_in_whatsapp(browser, whatsapp_tab, target_groups, message, aff
                     )
                 deliveries_result.append({'group': group_name, 'success': True})
                 batch_success += 1
+                _ADMIN_ONLY_SKIP_UNTIL.pop(group_name, None)
                 time.sleep(2)
+            except GroupAdminOnlySkip as skip_exc:
+                cooldown_sec = max(
+                    300,
+                    int(getattr(settings, 'AFFILIATE_BOT_GROUP_COOLDOWN_MINUTES', 60)) * 60,
+                )
+                _ADMIN_ONLY_SKIP_UNTIL[group_name] = time.monotonic() + cooldown_sec
+                logger.info('%s (pausa de %s min sem registrar erro).', skip_exc, cooldown_sec // 60)
+                continue
             except Exception as exc:
                 logger.exception('Falha ao enviar oferta para o grupo “%s”.', group_name)
                 if publication:

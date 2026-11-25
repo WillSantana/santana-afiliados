@@ -1037,3 +1037,87 @@ class IncomingOfferPersistenceTests(TestCase):
         self.assertIn('NO TIKTOK SHOP', msg)
         self.assertIn('50% OFF', msg)
         self.assertIn('https://vt.tiktok.com/ZSY123AbC', msg)
+
+    def test_group_cooldown_and_symbol_normalization(self):
+        from apps.publications.affiliate_watcher import (
+            _is_group_match,
+            select_balanced_target_groups,
+        )
+        from apps.publications.models import PublicationDelivery, PublicationDeliveryStatus
+
+        self.assertTrue(_is_group_match('Vendas & Rolos', 'Vendas&rolos'))
+        self.assertFalse(_is_group_match('Geral', 'Catira Geral Nova Contagem'))
+
+        prod = ProductOffer.objects.create(
+            item_id='MLB777666555',
+            category='other',
+            title='Produto Cooldown',
+            price='50.00',
+            product_url='https://www.mercadolivre.com.br/p/MLB777666555',
+            affiliate_url='https://meli.la/Cool123',
+            status=ProductStatus.APPROVED,
+        )
+        pub = Publication.objects.create(
+            product=prod,
+            title='Oferta',
+            message_text='Texto',
+            status=PublicationStatus.APPROVED,
+        )
+        for _ in range(3):
+            PublicationDelivery.objects.create(
+                publication=pub,
+                target_group_name='Grupo Quebrado',
+                affiliate_url='https://meli.la/Cool123',
+                status=PublicationDeliveryStatus.FAILED,
+                error_message='Não consegui abrir',
+            )
+
+        priority, overflow = select_balanced_target_groups(['Grupo Quebrado', 'Grupo Saudavel'], max_lead=1)
+        self.assertEqual(priority, ['Grupo Saudavel'])
+        self.assertEqual(overflow, [])
+
+    def test_admin_only_group_is_skipped_without_recording_failure(self):
+        from apps.publications.affiliate_watcher import (
+            GroupAdminOnlySkip,
+            _ADMIN_ONLY_SKIP_UNTIL,
+            publish_offer_in_whatsapp,
+        )
+        from apps.publications.models import PublicationDelivery
+
+        _ADMIN_ONLY_SKIP_UNTIL.clear()
+        prod = ProductOffer.objects.create(
+            item_id='MLB555444333',
+            category='other',
+            title='Produto Admin Skip',
+            price='79.90',
+            product_url='https://www.mercadolivre.com.br/p/MLB555444333',
+            affiliate_url='https://meli.la/Adm123',
+            status=ProductStatus.APPROVED,
+        )
+        pub = Publication.objects.create(
+            product=prod,
+            title='Oferta',
+            message_text='Texto',
+            status=PublicationStatus.APPROVED,
+        )
+
+        def fake_publish(browser, whatsapp_tab, group_name, message, affiliate_url):
+            if group_name == 'Grupo Trancado':
+                raise GroupAdminOnlySkip('Trancado para admins')
+            return True
+
+        with patch('apps.publications.affiliate_watcher._publish_offer_to_group', side_effect=fake_publish):
+            res = publish_offer_in_whatsapp(
+                Mock(),
+                'wa-tab',
+                ['Grupo Trancado', 'Grupo Aberto'],
+                'Texto',
+                'https://meli.la/Adm123',
+                publication=pub,
+            )
+
+        self.assertIn('1 grupo(s)', res)
+        self.assertEqual(PublicationDelivery.objects.filter(target_group_name='Grupo Trancado').count(), 0)
+        self.assertEqual(PublicationDelivery.objects.filter(target_group_name='Grupo Aberto', status='success').count(), 1)
+        self.assertIn('Grupo Trancado', _ADMIN_ONLY_SKIP_UNTIL)
+        _ADMIN_ONLY_SKIP_UNTIL.clear()
