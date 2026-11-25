@@ -353,6 +353,18 @@ class PublicationViewSet(viewsets.ModelViewSet):
             else 0.0
         )
 
+        bait_sent_today = PublicationDelivery.objects.filter(
+            is_bait=True,
+            status=PublicationDeliveryStatus.SUCCESS,
+            sent_at__date=today,
+        ).count()
+        vip_group_name = getattr(settings, 'AFFILIATE_BOT_VIP_GROUP_NAME', 'Garimpo de Ofertas')
+        vip_sent_today = PublicationDelivery.objects.filter(
+            Q(tracking_channel='garimpo_vip') | Q(target_group_name__iexact=vip_group_name),
+            status=PublicationDeliveryStatus.SUCCESS,
+            sent_at__date=today,
+        ).count()
+
         recent_deliveries = PublicationDelivery.objects.select_related('publication__product').order_by('-sent_at')[:20]
         recent_offers = all_offers.select_related('product').order_by('-received_at')[:15]
 
@@ -369,6 +381,13 @@ class PublicationViewSet(viewsets.ModelViewSet):
                 'total_clicks': total_clicks_all,
                 'total_orders': total_orders_all,
                 'clicks_per_delivery': clicks_per_delivery,
+            },
+            'funnel_summary': {
+                'bait_sent_today': bait_sent_today,
+                'vip_sent_today': vip_sent_today,
+                'vip_daily_limit': getattr(settings, 'AFFILIATE_BOT_VIP_DAILY_LIMIT', 12),
+                'vip_group_name': vip_group_name,
+                'vitrine_url': getattr(settings, 'AFFILIATE_BOT_VITRINE_BASE_URL', ''),
             },
             'metrics': {
                 'total_offers': total_offers,

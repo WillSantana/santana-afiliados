@@ -74,6 +74,7 @@ export default function DashboardPage({ onNavigateTab }) {
   const botStatus = data?.bot_status || {};
   const windowStatus = data?.window_status || {};
   const clicksSummary = data?.clicks_summary || {};
+  const funnelSummary = data?.funnel_summary || {};
   const metrics = data?.metrics || {};
   const groups = data?.groups || {};
   const storeMetrics = data?.store_metrics || [];
@@ -99,6 +100,18 @@ export default function DashboardPage({ onNavigateTab }) {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.55rem', flexWrap: 'wrap' }}>
+          {funnelSummary.vitrine_url && (
+            <a
+              href={funnelSummary.vitrine_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="ripply-btn-outline"
+              style={{ color: '#047857', borderColor: '#a7f3d0', background: '#ecfdf5' }}
+            >
+              <Icon name="external" size={14} color="#047857" />
+              Vitrine Pública
+            </a>
+          )}
           <button
             type="button"
             className="ripply-btn-outline"
@@ -327,7 +340,15 @@ export default function DashboardPage({ onNavigateTab }) {
               );
             })}
 
-            {/* Taxa de entregas sem falha */}
+            {/* Funil VIP Garimpo de Ofertas & Taxa de entregas */}
+            <div style={{ paddingTop: '0.65rem', borderTop: '1px solid #f1f3f5', display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem', fontSize: '0.78rem', color: '#4b5563' }}>
+              <span>
+                🎯 Ofertas Isca hoje: <strong style={{ color: '#ea580c' }}>{funnelSummary.bait_sent_today ?? 0}</strong>
+              </span>
+              <span>
+                ⭐ VIP {funnelSummary.vip_group_name || 'Garimpo'}: <strong style={{ color: '#047857' }}>{funnelSummary.vip_sent_today ?? 0}/{funnelSummary.vip_daily_limit ?? 12}</strong>
+              </span>
+            </div>
             <div style={{ paddingTop: '0.5rem', borderTop: '1px solid #f1f3f5', display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', color: '#6b7280' }}>
               <span>Entregas totais: <strong style={{ color: '#059669' }}>{metrics.deliveries_success || 0}</strong></span>
               <span>Falhas: <strong style={{ color: (metrics.deliveries_failed || 0) > 0 ? '#dc2626' : '#6b7280' }}>{metrics.deliveries_failed || 0}</strong></span>
