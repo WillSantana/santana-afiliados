@@ -1,10 +1,55 @@
 {
-  "generated_at": "2026-11-27T21:04:07.948902+00:00",
+  "generated_at": "2026-11-27T21:35:31.644908+00:00",
   "max_age_hours": 48,
   "vip_group_name": "Garimpo de Ofertas",
   "vip_invite_link": "https://chat.whatsapp.com/KZdtfAoUgzlImAVvrT8euC",
-  "total": 68,
+  "total": 70,
   "offers": [
+    {
+      "id": "2117",
+      "item_id": "MLB27935507",
+      "title": "Modelador de cachos de barril Taiff Curves 2.5cm de diâmetro",
+      "price": 156.0,
+      "original_price": 249.9,
+      "discount_pct": 38,
+      "coupon": "",
+      "store": "mercadolivre",
+      "store_label": "Mercado Livre",
+      "category": "other",
+      "thumbnail": "https://http2.mlstatic.com/D_NQ_NP_845083-MLA79629755600_102024-O.webp",
+      "affiliate_url": "https://meli.la/2o4r7LP",
+      "published_at": "2026-11-27T21:16:39.612885+00:00"
+    },
+    {
+      "id": "2122",
+      "item_id": "MLB4203349831",
+      "title": "Vestido Longo Alça Plus Size Florido Estampado Soltinho",
+      "price": 68.4,
+      "original_price": 149.9,
+      "discount_pct": 54,
+      "coupon": "",
+      "store": "mercadolivre",
+      "store_label": "Mercado Livre",
+      "category": "other",
+      "thumbnail": "https://http2.mlstatic.com/D_NQ_NP_978744-MLB91917300828_092025-O-vestido-longo-alca-plus-size-florido-estampado-soltinho.webp",
+      "affiliate_url": "https://meli.la/2wxWZ3a",
+      "published_at": "2026-11-27T21:11:04.865800+00:00"
+    },
+    {
+      "id": "2120",
+      "item_id": "MLB65719614",
+      "title": "Tênis Flyer Runner Mesh Bdp Puma",
+      "price": 169.99,
+      "original_price": 349.99,
+      "discount_pct": 51,
+      "coupon": "",
+      "store": "mercadolivre",
+      "store_label": "Mercado Livre",
+      "category": "other",
+      "thumbnail": "https://http2.mlstatic.com/D_NQ_NP_705629-MLA107373286811_022026-O.webp",
+      "affiliate_url": "https://meli.la/2iE7XvL",
+      "published_at": "2026-11-27T21:05:36.922445+00:00"
+    },
     {
       "id": "2110",
       "item_id": "MLB24442680",
@@ -1009,21 +1054,6 @@
       "thumbnail": "https://http2.mlstatic.com/D_NQ_NP_769482-MLA118143543046_102026-O.webp",
       "affiliate_url": "https://meli.la/1bvYECY",
       "published_at": "2026-11-25T21:39:12.261591+00:00"
-    },
-    {
-      "id": "1923",
-      "item_id": "MLB43505055",
-      "title": "Principia Kit Primeira Rotina Avançada C/ Gl-02 + Nc-10 + Ah-2 + Ps-01",
-      "price": 165.75,
-      "original_price": 221.0,
-      "discount_pct": 25,
-      "coupon": "",
-      "store": "mercadolivre",
-      "store_label": "Mercado Livre",
-      "category": "other",
-      "thumbnail": "https://http2.mlstatic.com/D_NQ_NP_784220-MLA110469972943_042026-O.webp",
-      "affiliate_url": "https://meli.la/1Qd5766",
-      "published_at": "2026-11-25T21:33:50.198887+00:00"
     }
   ]
 }
