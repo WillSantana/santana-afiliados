@@ -1991,7 +1991,12 @@ def sync_vip_group_members_count(browser, whatsapp_tab):
         except Exception:
             pass
 
-        current_header = _get_active_chat_header(browser)
+        current_header = browser.execute_script(
+            """
+            const h = document.querySelector('#main header');
+            return h ? (h.innerText || '').split('\\n')[0].trim() : '';
+            """
+        ) or ''
         if not _is_group_match(current_header, group_obj.name):
             open_whatsapp_group(browser, group_obj.name)
             time.sleep(1.0)
