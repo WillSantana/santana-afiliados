@@ -1666,7 +1666,108 @@ def _send_button(browser):
     return False
 
 
-def _publish_offer_to_group(browser, whatsapp_tab, target_group, message, affiliate_url):
+def _try_send_visual_card_in_whatsapp(browser, card_image_path, caption):
+    """
+    Envia o card visual (PNG 1080x1080 com foto do produto + selo % OFF + preço)
+    com a legenda formatada via WhatsApp Web. Retorna True se enviado com sucesso,
+    ou False para permitir fallback seguro ao envio com prévia de link.
+    """
+    from selenium.webdriver.common.by import By
+    from selenium.webdriver.common.keys import Keys
+    from selenium.webdriver.support.ui import WebDriverWait
+
+    if not card_image_path or not os.path.exists(card_image_path):
+        return False
+
+    try:
+        # Clica no botão de anexar (+) / clipe no rodapé da conversa para expor o input[type=file]
+        attach_clicked = browser.execute_script(
+            """
+            const footer = document.querySelector('#main footer');
+            if (!footer) return false;
+            const selectors = [
+                'button[aria-label*="Anexar"]',
+                'button[aria-label*="Attach"]',
+                'button[title*="Anexar"]',
+                'button[title*="Attach"]',
+                '[data-icon="plus-rounded"]',
+                '[data-icon="plus"]',
+                '[data-icon="clip"]',
+            ];
+            for (const sel of selectors) {
+                const el = footer.querySelector(sel);
+                if (el) {
+                    (el.closest('button') || el).click();
+                    return true;
+                }
+            }
+            return false;
+            """
+        )
+        if not attach_clicked:
+            return False
+        time.sleep(0.7)
+
+        file_inputs = browser.find_elements(By.CSS_SELECTOR, 'input[type="file"][accept*="image"]')
+        if not file_inputs:
+            file_inputs = browser.find_elements(By.CSS_SELECTOR, 'input[type="file"]')
+        if not file_inputs:
+            ActionChains(browser).send_keys(Keys.ESCAPE).perform()
+            return False
+
+        file_inputs[0].send_keys(os.path.abspath(card_image_path))
+        time.sleep(1.6)
+
+        # Aguarda o botão de envio do overlay de mídia ficar visível
+        def _find_media_send_btn(drv):
+            for sel in (
+                'div[role="button"][aria-label*="Enviar"]',
+                'div[role="button"][aria-label*="Send"]',
+                'button[aria-label*="Enviar"]',
+                'button[aria-label*="Send"]',
+                'span[data-icon="send"]',
+                'span[data-icon="wds-ic-send-filled"]',
+            ):
+                els = drv.find_elements(By.CSS_SELECTOR, sel)
+                for el in els:
+                    if el.is_displayed():
+                        return el
+            return None
+
+        send_btn = WebDriverWait(browser, 10, poll_frequency=0.4).until(_find_media_send_btn)
+
+        # Digita a legenda no campo de legenda da mídia (fora do #main footer)
+        caption_box = browser.execute_script(
+            """
+            const boxes = Array.from(document.querySelectorAll('div[contenteditable="true"]'))
+                .filter(el => el.offsetParent !== null && !el.closest('#side') && !el.closest('#main footer'));
+            return boxes.length ? boxes[boxes.length - 1] : null;
+            """
+        )
+        if caption_box:
+            caption_box.click()
+            lines = (caption or '').splitlines()
+            for idx, line in enumerate(lines):
+                if line:
+                    caption_box.send_keys(line)
+                if idx < len(lines) - 1:
+                    caption_box.send_keys(Keys.SHIFT, Keys.ENTER)
+            time.sleep(0.4)
+
+        send_btn.click()
+        time.sleep(1.5)
+        return True
+    except Exception:
+        logger.warning('Falha ao enviar card visual no WhatsApp; usando fallback de prévia.', exc_info=True)
+        try:
+            ActionChains(browser).send_keys(Keys.ESCAPE).perform()
+            time.sleep(0.3)
+        except Exception:
+            pass
+        return False
+
+
+def _publish_offer_to_group(browser, whatsapp_tab, target_group, message, affiliate_url, card_image_path=None):
     from selenium.common.exceptions import TimeoutException, WebDriverException
     from selenium.webdriver.common.keys import Keys
     from selenium.webdriver.support.ui import WebDriverWait
@@ -1736,6 +1837,11 @@ def _publish_offer_to_group(browser, whatsapp_tab, target_group, message, affili
         raise AffiliateAutomationError(
             f'Campo de mensagem não ficou disponível em “{target_group}”.'
         ) from exc
+
+    # Passo 2: se houver Card Visual gerado (foto + selo % OFF + preço), envia como imagem com legenda
+    if card_image_path and _try_send_visual_card_in_whatsapp(browser, card_image_path, message):
+        return
+
     _type_full_message()
 
     # Aguarda até 12s pela prévia com imagem no WhatsApp Web; se não carregar, tenta mais uma vez
@@ -2076,6 +2182,28 @@ def publish_offer_in_whatsapp(browser, whatsapp_tab, target_groups, message, aff
     priority_groups, overflow_groups = select_balanced_target_groups(target_groups, store=offer_store)
     deliveries_result = []
 
+    card_image_path = None
+    send_visual_card = str(getattr(settings, 'AFFILIATE_BOT_SEND_VISUAL_CARD', 'True') or '').strip().lower() in (
+        '1', 'true', 'yes', 'on',
+    )
+    prod_for_card = publication.product if publication and getattr(publication, 'product', None) else None
+    if send_visual_card and prod_for_card and getattr(prod_for_card, 'thumbnail', ''):
+        try:
+            from .card_generator import generate_offer_card_image
+            from .product_urls import get_store_display_name
+            card_image_path = generate_offer_card_image(
+                title=_shorten_offer_title(prod_for_card.title),
+                price=prod_for_card.price,
+                original_price=prod_for_card.original_price,
+                store_label=get_store_display_name(offer_store or prod_for_card.store),
+                thumbnail_url=prod_for_card.thumbnail,
+                coupon=inbox.coupon if inbox else '',
+                brand_name=getattr(settings, 'AFFILIATE_BOT_VIP_GROUP_NAME', 'GARIMPO DE OFERTAS'),
+            )
+        except Exception:
+            logger.warning('Falha ao gerar card visual da oferta; seguindo com prévia padrão.', exc_info=True)
+            card_image_path = None
+
     def _dispatch_batch(batch):
         batch_success = 0
         for item in batch:
@@ -2222,6 +2350,7 @@ def publish_offer_in_whatsapp(browser, whatsapp_tab, target_groups, message, aff
                     group_name,
                     outgoing_message,
                     tracked_url,
+                    card_image_path=card_image_path,
                 )
                 if publication:
                     PublicationDelivery.objects.create(
@@ -2264,12 +2393,19 @@ def publish_offer_in_whatsapp(browser, whatsapp_tab, target_groups, message, aff
                 deliveries_result.append({'group': group_name, 'success': False, 'error': str(exc)})
         return batch_success
 
-    sent_in_priority = _dispatch_batch(priority_groups)
-    if sent_in_priority == 0 and overflow_groups:
-        logger.info(
-            'Nenhum envio concluído no lote prioritário equilibrado; tentando demais grupos em ordem de menor volume.'
-        )
-        _dispatch_batch(overflow_groups)
+    try:
+        sent_in_priority = _dispatch_batch(priority_groups)
+        if sent_in_priority == 0 and overflow_groups:
+            logger.info(
+                'Nenhum envio concluído no lote prioritário equilibrado; tentando demais grupos em ordem de menor volume.'
+            )
+            _dispatch_batch(overflow_groups)
+    finally:
+        if card_image_path and os.path.exists(card_image_path):
+            try:
+                os.remove(card_image_path)
+            except Exception:
+                pass
 
     if not deliveries_result:
         return 'Todos os grupos autorizados já haviam recebido esta oferta anteriormente.'
@@ -2282,8 +2418,18 @@ def publish_offer_in_whatsapp(browser, whatsapp_tab, target_groups, message, aff
     return f'Oferta enviada com sucesso para {success_count} grupo(s).'
 
 
-def _shorten_offer_title(title, max_len=72):
+def _shorten_offer_title(title, max_len=68):
     cleaned = re.sub(r'\s+', ' ', (title or '')).strip()
+    # Remove códigos técnicos/SKU entre colchetes ou parênteses e termos redundantes de anúncio
+    cleaned = re.sub(r'[\[\(]\s*(?:sku|c[óo]d\.?|ref\.?|ean|nf-?e|original|lacrado|novo)[^\]\)]*[\]\)]', '', cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(
+        r'\b(?:100%\s*original|com\s+nota\s+fiscal|nota\s+fiscal|pronta\s+entrega|envio\s+imediato|envio\s+r[áa]pido|nf-?e|lacrado|super\s+oferta|promo[çc][ãa]o)\b',
+        '',
+        cleaned,
+        flags=re.IGNORECASE,
+    )
+    cleaned = re.sub(r'\s*[-/|]+\s*$', '', cleaned)
+    cleaned = re.sub(r'\s{2,}', ' ', cleaned).strip(' -|/,')
     if len(cleaned) <= max_len:
         return cleaned
     # Tenta cortar em separador natural (vírgula, traço, barra) antes de truncar
@@ -2386,12 +2532,15 @@ def build_bait_offer_message(details, coupon, affiliate_url, invite_link=''):
     if original_val and float(original_val) > price_val:
         original_float = float(original_val)
         original = f'{original_float:,.2f}'.replace(',', 'X').replace('.', ',').replace('X', '.')
-        lines.append(f'De ~R$ {original}~ por *R$ {price}*')
+        savings = original_float - price_val
+        savings_str = f'{savings:,.2f}'.replace(',', 'X').replace('.', ',').replace('X', '.')
+        savings_suffix = f' · _Economize R$ {savings_str}_' if savings >= 5 else ''
+        lines.append(f'De ~R$ {original}~ por *R$ {price}*{savings_suffix}')
     else:
         lines.append(f'Por apenas *R$ {price}*')
     if coupon:
-        lines.append(f'🎟️ *Use o cupom:* {coupon}')
-    lines.append(f'🛒 Link direto: {affiliate_url}')
+        lines.append(f'🎟️ *Ative o cupom:* {coupon}')
+    lines.append(f'🛒 Link oficial: {affiliate_url}')
     lines.append('')
     lines.append(
         '⚠️ *Quer receber mais bugs de preço e cupons relâmpago como esse antes de acabar '
@@ -2406,45 +2555,52 @@ def build_bait_offer_message(details, coupon, affiliate_url, invite_link=''):
 
 def build_incoming_offer_message(details, coupon, affiliate_url, original_message=''):
     """
-    Módulo 2 (Gerador de Copy de Alta Conversão — Template Dinâmico).
+    Módulo 2 (Gerador de Copy de Alta Conversão — Regra dos 3 Segundos).
     """
     price_val = float(details['price'])
     price = f'{price_val:,.2f}'.replace(',', 'X').replace('.', ',').replace('X', '.')
     original_val = details.get('original_price')
     discount_pct = 0
     original = ''
+    savings = 0.0
     if original_val and float(original_val) > price_val:
         original_float = float(original_val)
         original = f'{original_float:,.2f}'.replace(',', 'X').replace('.', ',').replace('X', '.')
+        savings = original_float - price_val
         discount_pct = round(((original_float - price_val) / original_float) * 100)
 
     store_suffix = get_store_headline_suffix(details.get('store', STORE_MERCADOLIVRE))
     if discount_pct >= 45:
-        headline = f'🚨 *MENOR PREÇO HISTÓRICO — {discount_pct}% OFF {store_suffix}!*'
+        headline = f'🚨 *MENOR PREÇO — {discount_pct}% OFF {store_suffix}*'
     elif discount_pct >= 25:
-        headline = f'🔥 *OPORTUNIDADE RELÂMPAGO — {discount_pct}% OFF {store_suffix}!*'
+        headline = f'🔥 *OPORTUNIDADE — {discount_pct}% OFF {store_suffix}*'
     elif coupon:
-        headline = f'🎟️ *CUPOM LIBERADO {store_suffix}!*'
+        headline = f'🎟️ *CUPOM LIBERADO {store_suffix}*'
     else:
-        headline = f'🔥 *OFERTA SELECIONADA {store_suffix}!*'
+        headline = f'🔥 *OFERTA VERIFICADA {store_suffix}*'
 
     short_title = _shorten_offer_title(details.get('title', ''))
     lines = [
         headline,
-        '',
         f'*{short_title}*',
     ]
     if original and discount_pct > 0:
-        lines.append(f'De ~R$ {original}~ por *R$ {price}* 💥')
+        savings_str = f'{savings:,.2f}'.replace(',', 'X').replace('.', ',').replace('X', '.')
+        savings_suffix = f' · _Economize R$ {savings_str}_' if savings >= 5 else ''
+        lines.append(f'De ~R$ {original}~ por *R$ {price}*{savings_suffix}')
     else:
-        lines.append(f'Por apenas *R$ {price}* 💥')
+        lines.append(f'Por apenas *R$ {price}*')
 
+    conditions = []
     if coupon:
-        lines.append(f'🎟️ *Ative o cupom na página:* {coupon}')
-
+        conditions.append(f'🎟️ *Cupom:* {coupon}')
     orig_low = (original_message or '').lower()
     if 'pix' in orig_low:
-        lines.append('⚡ *Preço válido no Pix*')
+        conditions.append('⚡ *Válido no Pix*')
+    if any(term in orig_low for term in ('frete grátis', 'frete gratis', 'entrega full', 'prime')):
+        conditions.append('🚚 *Entrega rápida / Frete Grátis*')
+    if conditions:
+        lines.append(' · '.join(conditions))
 
     lines.append(f'👉 {affiliate_url}')
     return '\n'.join(lines)
