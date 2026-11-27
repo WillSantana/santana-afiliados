@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-11-27T02:23:15.597999+00:00",
+  "generated_at": "2026-11-27T03:01:07.564286+00:00",
   "max_age_hours": 48,
   "vip_group_name": "Garimpo de Ofertas",
   "vip_invite_link": "https://chat.whatsapp.com/KZdtfAoUgzlImAVvrT8euC",
-  "total": 62,
+  "total": 58,
   "offers": [
     {
       "id": "1977",
@@ -874,66 +874,6 @@
       "thumbnail": "https://m.media-amazon.com/images/W/BW_MEDIAX_AVIF_MEASUREMENT_1306696-T4/images/I/71mb90Nsw+L._AC_SL1500_.jpg",
       "affiliate_url": "https://www.amazon.com.br/dp/B0F1C25WDT?tag=willjsantana-20",
       "published_at": "2026-11-25T12:17:00.780080+00:00"
-    },
-    {
-      "id": "189",
-      "item_id": "MLB61763857",
-      "title": "Mouse Pad Gamer Apex Control Profissional 49x42 Mousepad - Onda Degradê",
-      "price": 69.9,
-      "original_price": 99.9,
-      "discount_pct": 30,
-      "coupon": "",
-      "store": "mercadolivre",
-      "store_label": "Mercado Livre",
-      "category": "other",
-      "thumbnail": "https://http2.mlstatic.com/D_NQ_NP_816699-MLA97463289171_112025-O.webp",
-      "affiliate_url": "https://meli.la/2zxXzqk",
-      "published_at": "2026-11-25T02:58:35.973183+00:00"
-    },
-    {
-      "id": "1755",
-      "item_id": "MLB64244402",
-      "title": "Relógio Inteligente Smartwatch Alexa Chamadas NOVANTE Masculino Feminino Esportivo IP68 Bluetooth Notificações Instantâneas Tela Hd 1.83 300mAh 10Dias Monitor Cardíaco Spo2 Sono Ecg Pagamento Offline",
-      "price": 133.39,
-      "original_price": 299.0,
-      "discount_pct": 55,
-      "coupon": "",
-      "store": "mercadolivre",
-      "store_label": "Mercado Livre",
-      "category": "other",
-      "thumbnail": "https://http2.mlstatic.com/D_NQ_NP_601086-MLA105614859580_012026-O.webp",
-      "affiliate_url": "https://meli.la/2Ut8jLr",
-      "published_at": "2026-11-25T02:52:58.538395+00:00"
-    },
-    {
-      "id": "1151",
-      "item_id": "MLB46141430",
-      "title": "Teclado Magnético Monsgeek Akko Fun60 Pro RGB 60%",
-      "price": 201.6,
-      "original_price": 400.0,
-      "discount_pct": 50,
-      "coupon": "MELIGARANTE",
-      "store": "mercadolivre",
-      "store_label": "Mercado Livre",
-      "category": "other",
-      "thumbnail": "https://http2.mlstatic.com/D_NQ_NP_804923-MLA114376583165_072026-O.webp",
-      "affiliate_url": "https://meli.la/1WxmKma",
-      "published_at": "2026-11-25T02:47:24.447305+00:00"
-    },
-    {
-      "id": "1753",
-      "item_id": "MLB61455819",
-      "title": "Monitor Gamer AOC AGON G50 24\" 144Hz 0,5ms IPS HDR10 G-SYNC 24G50F Preto",
-      "price": 510.91,
-      "original_price": 749.0,
-      "discount_pct": 32,
-      "coupon": "",
-      "store": "mercadolivre",
-      "store_label": "Mercado Livre",
-      "category": "other",
-      "thumbnail": "https://http2.mlstatic.com/D_NQ_NP_748152-MLA96322082514_102025-O.webp",
-      "affiliate_url": "https://meli.la/11NDt3m",
-      "published_at": "2026-11-25T02:33:08.361867+00:00"
     }
   ]
 }
