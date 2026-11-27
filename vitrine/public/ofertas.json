@@ -1,10 +1,25 @@
 {
-  "generated_at": "2026-11-27T01:50:15.901434+00:00",
+  "generated_at": "2026-11-27T01:51:31.912682+00:00",
   "max_age_hours": 48,
   "vip_group_name": "Garimpo de Ofertas",
   "vip_invite_link": "https://chat.whatsapp.com/KZdtfAoUgzlImAVvrT8euC",
-  "total": 64,
+  "total": 65,
   "offers": [
+    {
+      "id": "1768",
+      "item_id": "AMZNB0CP31L73X",
+      "title": "Kindle 16 GB (modelo 2024) - Leve e compacto, com tela antirreflexo, trocas de página rápidas, luz frontal ajustável e bateria de longa duração - Cor Preta",
+      "price": 519.0,
+      "original_price": 899.0,
+      "discount_pct": 42,
+      "coupon": "",
+      "store": "amazon",
+      "store_label": "Amazon",
+      "category": "other",
+      "thumbnail": "https://m.media-amazon.com/images/W/BW_MEDIAX_AVIF_MEASUREMENT_1306696-T4/images/I/71STno2PC1L._AC_SL1500_.jpg",
+      "affiliate_url": "https://www.amazon.com.br/dp/B0CP31L73X?tag=willjsantana-20",
+      "published_at": "2026-11-27T01:51:31.903535+00:00"
+    },
     {
       "id": "1766",
       "item_id": "AMZNB0FFNRMR4L",
