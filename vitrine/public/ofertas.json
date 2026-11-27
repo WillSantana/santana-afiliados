@@ -1,10 +1,25 @@
 {
-  "generated_at": "2026-11-27T13:56:54.245300+00:00",
+  "generated_at": "2026-11-27T14:31:27.972164+00:00",
   "max_age_hours": 48,
   "vip_group_name": "Garimpo de Ofertas",
   "vip_invite_link": "https://chat.whatsapp.com/KZdtfAoUgzlImAVvrT8euC",
   "total": 59,
   "offers": [
+    {
+      "id": "2027",
+      "item_id": "MLB19790746",
+      "title": "Micro-ondas Electrolux 36L Branco Efficient com Descongelamento Assistido ME36B",
+      "price": 525.82,
+      "original_price": 899.0,
+      "discount_pct": 42,
+      "coupon": "",
+      "store": "mercadolivre",
+      "store_label": "Mercado Livre",
+      "category": "other",
+      "thumbnail": "https://http2.mlstatic.com/D_NQ_NP_700594-MLA99497292644_112025-O.webp",
+      "affiliate_url": "https://meli.la/2GWSUG9",
+      "published_at": "2026-11-27T14:03:03.988368+00:00"
+    },
     {
       "id": "1820",
       "item_id": "AMZNB08LBQWQV4",
@@ -18,7 +33,7 @@
       "category": "other",
       "thumbnail": "https://m.media-amazon.com/images/W/BW_MEDIAX_AVIF_MEASUREMENT_1306696-T4/images/I/81P0r5+MpdL._AC_SL1500_.jpg",
       "affiliate_url": "https://www.amazon.com.br/dp/B08LBQWQV4?tag=willjsantana-20",
-      "published_at": "2026-11-27T13:56:54.238040+00:00"
+      "published_at": "2026-11-27T13:57:11.522466+00:00"
     },
     {
       "id": "2022",
@@ -874,21 +889,6 @@
       "thumbnail": "https://http2.mlstatic.com/D_NQ_NP_931124-MLA96133477503_102025-O.webp",
       "affiliate_url": "https://meli.la/2hd93Qq",
       "published_at": "2026-11-25T14:48:36.711309+00:00"
-    },
-    {
-      "id": "1787",
-      "item_id": "MLB79122574",
-      "title": "Kit 2 Moedores De Sal Grosso E Pimenta Do Reino Em Aço e Tampa Inox Boa Dica",
-      "price": 38.09,
-      "original_price": 54.9,
-      "discount_pct": 31,
-      "coupon": "",
-      "store": "mercadolivre",
-      "store_label": "Mercado Livre",
-      "category": "other",
-      "thumbnail": "https://http2.mlstatic.com/D_NQ_NP_973688-MLA115961482378_092026-O.webp",
-      "affiliate_url": "https://meli.la/1eBL6n8",
-      "published_at": "2026-11-25T13:58:37.448501+00:00"
     }
   ]
 }
