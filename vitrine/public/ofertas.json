@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-11-27T14:31:27.972164+00:00",
+  "generated_at": "2026-11-27T15:13:06.009501+00:00",
   "max_age_hours": 48,
   "vip_group_name": "Garimpo de Ofertas",
   "vip_invite_link": "https://chat.whatsapp.com/KZdtfAoUgzlImAVvrT8euC",
-  "total": 59,
+  "total": 58,
   "offers": [
     {
       "id": "2027",
@@ -874,21 +874,6 @@
       "thumbnail": "https://m.media-amazon.com/images/W/BW_MEDIAX_AVIF_MEASUREMENT_1306696-T4/images/I/41pS08Q7EoL._AC_SL1000_.jpg",
       "affiliate_url": "https://www.amazon.com.br/dp/B09B8W3KQP?tag=willjsantana-20",
       "published_at": "2026-11-25T15:33:41.175047+00:00"
-    },
-    {
-      "id": "1797",
-      "item_id": "MLB50981260",
-      "title": "Fone De Ouvido Soundcore P20i Bluetooth 5.3 Grave Potente Drivers 10mm 30h Bateria Carregamento Rápido App Personalização De Som Via App Ipx5 2 Mics Ia Para Chamadas Claras Case Compacto Cor Rosa",
-      "price": 125.0,
-      "original_price": 299.0,
-      "discount_pct": 58,
-      "coupon": "",
-      "store": "mercadolivre",
-      "store_label": "Mercado Livre",
-      "category": "other",
-      "thumbnail": "https://http2.mlstatic.com/D_NQ_NP_931124-MLA96133477503_102025-O.webp",
-      "affiliate_url": "https://meli.la/2hd93Qq",
-      "published_at": "2026-11-25T14:48:36.711309+00:00"
     }
   ]
 }
