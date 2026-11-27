@@ -1,10 +1,25 @@
 {
-  "generated_at": "2026-11-27T12:51:50.855337+00:00",
+  "generated_at": "2026-11-27T13:14:27.229374+00:00",
   "max_age_hours": 48,
   "vip_group_name": "Garimpo de Ofertas",
   "vip_invite_link": "https://chat.whatsapp.com/KZdtfAoUgzlImAVvrT8euC",
-  "total": 64,
+  "total": 61,
   "offers": [
+    {
+      "id": "2016",
+      "item_id": "MLB23191928",
+      "title": "Electrolux Kit 12 Potes Herméticos de Plástico Retangulares",
+      "price": 69.9,
+      "original_price": 119.0,
+      "discount_pct": 41,
+      "coupon": "",
+      "store": "mercadolivre",
+      "store_label": "Mercado Livre",
+      "category": "other",
+      "thumbnail": "https://http2.mlstatic.com/D_NQ_NP_842482-MLA97781301544_112025-O.webp",
+      "affiliate_url": "https://meli.la/2otB4ek",
+      "published_at": "2026-11-27T12:57:25.856392+00:00"
+    },
     {
       "id": "2018",
       "item_id": "AMZNB0DVK15DR4",
@@ -18,7 +33,7 @@
       "category": "other",
       "thumbnail": "https://m.media-amazon.com/images/W/BW_MEDIAX_AVIF_MEASUREMENT_1306696-T4/images/I/514uMh-FSTL._AC_SL1000_.jpg",
       "affiliate_url": "https://www.amazon.com.br/dp/B0DVK15DR4?tag=willjsantana-20",
-      "published_at": "2026-11-27T12:51:50.845969+00:00"
+      "published_at": "2026-11-27T12:52:08.018332+00:00"
     },
     {
       "id": "2015",
@@ -904,66 +919,6 @@
       "thumbnail": "https://http2.mlstatic.com/D_NQ_NP_741077-MLB112364993136_062026-O-conjunto-segunda-pele-termica-flanelado-frio-intenso-preto.webp",
       "affiliate_url": "https://meli.la/1eRqdy9",
       "published_at": "2026-11-25T13:16:34.660603+00:00"
-    },
-    {
-      "id": "1777",
-      "item_id": "MLB65637350",
-      "title": "Tênis Flyer Runner Mesh Feminino Puma",
-      "price": 199.99,
-      "original_price": 299.99,
-      "discount_pct": 33,
-      "coupon": "",
-      "store": "mercadolivre",
-      "store_label": "Mercado Livre",
-      "category": "other",
-      "thumbnail": "https://http2.mlstatic.com/D_NQ_NP_959583-MLA106612816790_022026-O.webp",
-      "affiliate_url": "https://meli.la/2Ds3KLJ",
-      "published_at": "2026-11-25T13:12:01.300948+00:00"
-    },
-    {
-      "id": "1779",
-      "item_id": "MLB26672091",
-      "title": "Mala De Bordo Wilson 19´ Unissex - Vinho",
-      "price": 279.95,
-      "original_price": 699.9,
-      "discount_pct": 60,
-      "coupon": "",
-      "store": "mercadolivre",
-      "store_label": "Mercado Livre",
-      "category": "other",
-      "thumbnail": "https://http2.mlstatic.com/D_NQ_NP_754465-MLA109985412967_042026-O.webp",
-      "affiliate_url": "https://meli.la/1uJ9Ehv",
-      "published_at": "2026-11-25T13:07:37.181254+00:00"
-    },
-    {
-      "id": "1778",
-      "item_id": "AMZNB08T68T1T6",
-      "title": "Mouse Gamer Redragon Predator M612-RGB, Preto",
-      "price": 79.98,
-      "original_price": 159.0,
-      "discount_pct": 50,
-      "coupon": "",
-      "store": "amazon",
-      "store_label": "Amazon",
-      "category": "other",
-      "thumbnail": "https://m.media-amazon.com/images/W/BW_MEDIAX_AVIF_MEASUREMENT_1306696-T4/images/I/51AVGfhKbOL._AC_SL1500_.jpg",
-      "affiliate_url": "https://www.amazon.com.br/dp/B08T68T1T6?tag=willjsantana-20",
-      "published_at": "2026-11-25T13:03:20.305718+00:00"
-    },
-    {
-      "id": "1769",
-      "item_id": "MLB15052633",
-      "title": "Máquina De Costura Elgin Jx-4035 Genius Plus 31 Pontos Cor Branco",
-      "price": 599.0,
-      "original_price": 949.0,
-      "discount_pct": 37,
-      "coupon": "",
-      "store": "mercadolivre",
-      "store_label": "Mercado Livre",
-      "category": "other",
-      "thumbnail": "https://http2.mlstatic.com/D_NQ_NP_841781-MLA99935859263_112025-O.webp",
-      "affiliate_url": "https://meli.la/21XfZhT",
-      "published_at": "2026-11-25T12:54:03.430566+00:00"
     }
   ]
 }
