@@ -1,10 +1,40 @@
 {
-  "generated_at": "2026-11-27T13:14:27.229374+00:00",
+  "generated_at": "2026-11-27T13:28:59.770072+00:00",
   "max_age_hours": 48,
   "vip_group_name": "Garimpo de Ofertas",
   "vip_invite_link": "https://chat.whatsapp.com/KZdtfAoUgzlImAVvrT8euC",
-  "total": 61,
+  "total": 60,
   "offers": [
+    {
+      "id": "1816",
+      "item_id": "AMZNB09XJL4B9H",
+      "title": "Electrolux, Pote Hermetico, 12 unidades, A23122901, cinza",
+      "price": 64.9,
+      "original_price": 129.9,
+      "discount_pct": 50,
+      "coupon": "",
+      "store": "amazon",
+      "store_label": "Amazon",
+      "category": "other",
+      "thumbnail": "https://m.media-amazon.com/images/W/BW_MEDIAX_AVIF_MEASUREMENT_1306696-T4/images/I/51uccv-jBiL._AC_SL1000_.jpg",
+      "affiliate_url": "https://www.amazon.com.br/dp/B09XJL4B9H?tag=willjsantana-20",
+      "published_at": "2026-11-27T13:28:59.764386+00:00"
+    },
+    {
+      "id": "2020",
+      "item_id": "MLB26826554",
+      "title": "Caixa de Som Speaker AIWA SP-01 20W Bluetooth 15H IP65 RGB USB TWS",
+      "price": 159.0,
+      "original_price": 349.9,
+      "discount_pct": 55,
+      "coupon": "",
+      "store": "mercadolivre",
+      "store_label": "Mercado Livre",
+      "category": "other",
+      "thumbnail": "https://http2.mlstatic.com/D_NQ_NP_812534-MLA99524049864_122025-O.webp",
+      "affiliate_url": "https://meli.la/2v44cy8",
+      "published_at": "2026-11-27T13:15:55.208698+00:00"
+    },
     {
       "id": "2016",
       "item_id": "MLB23191928",
@@ -874,51 +904,6 @@
       "thumbnail": "https://http2.mlstatic.com/D_NQ_NP_870522-MLA100008316699_122025-O.webp",
       "affiliate_url": "https://meli.la/1wGwbaZ",
       "published_at": "2026-11-25T13:33:17.953234+00:00"
-    },
-    {
-      "id": "1781",
-      "item_id": "MLB27918387",
-      "title": "Memória RAM Diamond preto 16GB 1 Rise Mode RM-D4-16GB-3200DW",
-      "price": 879.0,
-      "original_price": null,
-      "discount_pct": 0,
-      "coupon": "ELETROTECHMELI",
-      "store": "mercadolivre",
-      "store_label": "Mercado Livre",
-      "category": "other",
-      "thumbnail": "https://http2.mlstatic.com/D_NQ_NP_769317-MLA74808086673_022024-O.webp",
-      "affiliate_url": "https://meli.la/2QSQj9n",
-      "published_at": "2026-11-25T13:27:47.054008+00:00"
-    },
-    {
-      "id": "1783",
-      "item_id": "AMZNB0FY6YRGRS",
-      "title": "Controle sem fio PlayStation DualSense™ – Gray Camouflage",
-      "price": 371.07,
-      "original_price": 499.9,
-      "discount_pct": 26,
-      "coupon": "",
-      "store": "amazon",
-      "store_label": "Amazon",
-      "category": "other",
-      "thumbnail": "https://m.media-amazon.com/images/W/BW_MEDIAX_AVIF_MEASUREMENT_1306696-T4/images/I/61yU5LP9zXL._AC_SL1500_.jpg",
-      "affiliate_url": "https://www.amazon.com.br/dp/B0FY6YRGRS?tag=willjsantana-20",
-      "published_at": "2026-11-25T13:23:09.497513+00:00"
-    },
-    {
-      "id": "1776",
-      "item_id": "MLB3983200239",
-      "title": "Conjunto Segunda Pele Térmica Flanelado Frio Intenso Preto",
-      "price": 58.14,
-      "original_price": 99.9,
-      "discount_pct": 42,
-      "coupon": "",
-      "store": "mercadolivre",
-      "store_label": "Mercado Livre",
-      "category": "other",
-      "thumbnail": "https://http2.mlstatic.com/D_NQ_NP_741077-MLB112364993136_062026-O-conjunto-segunda-pele-termica-flanelado-frio-intenso-preto.webp",
-      "affiliate_url": "https://meli.la/1eRqdy9",
-      "published_at": "2026-11-25T13:16:34.660603+00:00"
     }
   ]
 }
