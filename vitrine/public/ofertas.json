@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-11-27T01:31:20.203153+00:00",
+  "generated_at": "2026-11-27T01:50:15.901434+00:00",
   "max_age_hours": 48,
   "vip_group_name": "Garimpo de Ofertas",
   "vip_invite_link": "https://chat.whatsapp.com/KZdtfAoUgzlImAVvrT8euC",
-  "total": 65,
+  "total": 64,
   "offers": [
     {
       "id": "1766",
@@ -18,7 +18,7 @@
       "category": "other",
       "thumbnail": "https://m.media-amazon.com/images/W/BW_MEDIAX_AVIF_MEASUREMENT_1306696-T4/images/I/61vMwWcGVgL._AC_SL1200_.jpg",
       "affiliate_url": "https://www.amazon.com.br/dp/B0FFNRMR4L?tag=willjsantana-20",
-      "published_at": "2026-11-27T01:31:20.192418+00:00"
+      "published_at": "2026-11-27T01:31:35.905278+00:00"
     },
     {
       "id": "1970",
@@ -964,21 +964,6 @@
       "thumbnail": "https://m.media-amazon.com/images/W/BW_MEDIAX_AVIF_MEASUREMENT_1306696-T4/images/I/412RWxKFt8L._AC_SL1000_.jpg",
       "affiliate_url": "https://www.amazon.com.br/dp/B0DXR7GNWJ?tag=willjsantana-20",
       "published_at": "2026-11-25T01:54:20.892899+00:00"
-    },
-    {
-      "id": "1744",
-      "item_id": "AMZNB0G44H2N5X",
-      "title": "Geladeira Frost Free Duplex 333 Litros Branca Consul - CRM40MB 110V",
-      "price": 1819.34,
-      "original_price": 2409.0,
-      "discount_pct": 24,
-      "coupon": "",
-      "store": "amazon",
-      "store_label": "Amazon",
-      "category": "other",
-      "thumbnail": "https://m.media-amazon.com/images/W/BW_MEDIAX_AVIF_MEASUREMENT_1306696-T4/images/I/31HZgOYr7AL._AC_SL1000_.jpg",
-      "affiliate_url": "https://www.amazon.com.br/dp/B0G44H2N5X?tag=willjsantana-20",
-      "published_at": "2026-11-25T01:35:45.338585+00:00"
     }
   ]
 }
