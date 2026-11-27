@@ -1,10 +1,40 @@
 {
-  "generated_at": "2026-11-27T13:28:59.770072+00:00",
+  "generated_at": "2026-11-27T13:55:37.586703+00:00",
   "max_age_hours": 48,
   "vip_group_name": "Garimpo de Ofertas",
   "vip_invite_link": "https://chat.whatsapp.com/KZdtfAoUgzlImAVvrT8euC",
-  "total": 60,
+  "total": 58,
   "offers": [
+    {
+      "id": "2022",
+      "item_id": "MLB23452813",
+      "title": "Relógio Technos Riviera Feminino Bicolor Prata E Dourado 2015CEP/1K Aço",
+      "price": 470.13,
+      "original_price": 799.0,
+      "discount_pct": 41,
+      "coupon": "",
+      "store": "mercadolivre",
+      "store_label": "Mercado Livre",
+      "category": "other",
+      "thumbnail": "https://http2.mlstatic.com/D_NQ_NP_928933-MLA113779850997_062026-O.webp",
+      "affiliate_url": "https://meli.la/2nCWo7r",
+      "published_at": "2026-11-27T13:40:53.582122+00:00"
+    },
+    {
+      "id": "2024",
+      "item_id": "MLB3645306613",
+      "title": "Tênis Nike Flex Experience 12 Masculino",
+      "price": 249.99,
+      "original_price": 349.99,
+      "discount_pct": 29,
+      "coupon": "",
+      "store": "mercadolivre",
+      "store_label": "Mercado Livre",
+      "category": "other",
+      "thumbnail": "https://http2.mlstatic.com/D_NQ_NP_707495-MLB84757709369_052025-O-tnis-nike-flex-experience-12-masculino.webp",
+      "affiliate_url": "https://meli.la/24VDsUu",
+      "published_at": "2026-11-27T13:34:57.220114+00:00"
+    },
     {
       "id": "1816",
       "item_id": "AMZNB09XJL4B9H",
@@ -18,7 +48,7 @@
       "category": "other",
       "thumbnail": "https://m.media-amazon.com/images/W/BW_MEDIAX_AVIF_MEASUREMENT_1306696-T4/images/I/51uccv-jBiL._AC_SL1000_.jpg",
       "affiliate_url": "https://www.amazon.com.br/dp/B09XJL4B9H?tag=willjsantana-20",
-      "published_at": "2026-11-27T13:28:59.764386+00:00"
+      "published_at": "2026-11-27T13:29:16.883122+00:00"
     },
     {
       "id": "2020",
@@ -844,66 +874,6 @@
       "thumbnail": "https://http2.mlstatic.com/D_NQ_NP_973688-MLA115961482378_092026-O.webp",
       "affiliate_url": "https://meli.la/1eBL6n8",
       "published_at": "2026-11-25T13:58:37.448501+00:00"
-    },
-    {
-      "id": "1786",
-      "item_id": "MLB82636906",
-      "title": "Gabinete Suspenso Armario Banheiro Lavabo com Cuba Pia Imbutir Parede Moderno 60x30 Off Ripado CasayCasa",
-      "price": 160.93,
-      "original_price": 229.9,
-      "discount_pct": 30,
-      "coupon": "",
-      "store": "mercadolivre",
-      "store_label": "Mercado Livre",
-      "category": "other",
-      "thumbnail": "https://http2.mlstatic.com/D_NQ_NP_724874-MLA120008275778_112026-O.webp",
-      "affiliate_url": "https://meli.la/1o637Dg",
-      "published_at": "2026-11-25T13:52:13.860516+00:00"
-    },
-    {
-      "id": "1785",
-      "item_id": "AMZNB0CT687L26",
-      "title": "Kit 6 Pacotes Café Especial Torrado e Moído Coffee++ Variedades: Sul de Minas, Cerrado, Caparaó, Arara, Chapada de Minas e Clássico - 100% Arábica (6x250g)",
-      "price": 123.4,
-      "original_price": 149.9,
-      "discount_pct": 18,
-      "coupon": "",
-      "store": "amazon",
-      "store_label": "Amazon",
-      "category": "other",
-      "thumbnail": "https://m.media-amazon.com/images/W/BW_MEDIAX_AVIF_MEASUREMENT_1306696-T4/images/I/71xJnvE8tXL._AC_SL1500_.jpg",
-      "affiliate_url": "https://www.amazon.com.br/dp/B0CT687L26?tag=willjsantana-20",
-      "published_at": "2026-11-25T13:46:08.149290+00:00"
-    },
-    {
-      "id": "1780",
-      "item_id": "MLB74867151",
-      "title": "Percarbonato De Sodio Calisul Tira Manchas Granulado - 2 Kg",
-      "price": 60.99,
-      "original_price": 78.99,
-      "discount_pct": 23,
-      "coupon": "",
-      "store": "mercadolivre",
-      "store_label": "Mercado Livre",
-      "category": "other",
-      "thumbnail": "https://http2.mlstatic.com/D_NQ_NP_958788-MLA112850640212_072026-O.webp",
-      "affiliate_url": "https://meli.la/1JzMpji",
-      "published_at": "2026-11-25T13:37:34.373783+00:00"
-    },
-    {
-      "id": "1782",
-      "item_id": "MLB54154915",
-      "title": "Fonte Cooler Master Mwe Gold 650 V3, 650w, Atx 3.1, 80 Plus Preto",
-      "price": 353.41,
-      "original_price": 415.78,
-      "discount_pct": 15,
-      "coupon": "ELETROTECHMELI",
-      "store": "mercadolivre",
-      "store_label": "Mercado Livre",
-      "category": "other",
-      "thumbnail": "https://http2.mlstatic.com/D_NQ_NP_870522-MLA100008316699_122025-O.webp",
-      "affiliate_url": "https://meli.la/1wGwbaZ",
-      "published_at": "2026-11-25T13:33:17.953234+00:00"
     }
   ]
 }
