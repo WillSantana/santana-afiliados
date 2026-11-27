@@ -1,10 +1,55 @@
 {
-  "generated_at": "2026-11-27T00:44:02.355947+00:00",
+  "generated_at": "2026-11-27T01:17:04.389422+00:00",
   "max_age_hours": 48,
   "vip_group_name": "Garimpo de Ofertas",
   "vip_invite_link": "https://chat.whatsapp.com/KZdtfAoUgzlImAVvrT8euC",
   "total": 64,
   "offers": [
+    {
+      "id": "1967",
+      "item_id": "MLB62276281",
+      "title": "Conjunto De Panelas Antiaderente 10 Peças Coffee Cappuccino Imperial",
+      "price": 161.5,
+      "original_price": 299.99,
+      "discount_pct": 46,
+      "coupon": "",
+      "store": "mercadolivre",
+      "store_label": "Mercado Livre",
+      "category": "other",
+      "thumbnail": "https://http2.mlstatic.com/D_NQ_NP_881674-MLA106260237067_012026-O.webp",
+      "affiliate_url": "https://meli.la/1Z7dpJm",
+      "published_at": "2026-11-27T01:03:16.165147+00:00"
+    },
+    {
+      "id": "1968",
+      "item_id": "MLB18725310",
+      "title": "Creatina Soldiers Nutrition Em Pó Sem Sabor X 1kg",
+      "price": 64.85,
+      "original_price": 99.9,
+      "discount_pct": 35,
+      "coupon": "",
+      "store": "mercadolivre",
+      "store_label": "Mercado Livre",
+      "category": "other",
+      "thumbnail": "https://http2.mlstatic.com/D_NQ_NP_688379-MLB118205018580_102026-O.webp",
+      "affiliate_url": "https://meli.la/2apkcr7",
+      "published_at": "2026-11-27T00:56:45.679345+00:00"
+    },
+    {
+      "id": "1964",
+      "item_id": "MLB53446590",
+      "title": "Mini Scooter Moto Elétrica Frente E Ré Bateria 6v Som E Luz Cor Rosa Voltagem Do Carregador 127/220v",
+      "price": 349.9,
+      "original_price": 630.3,
+      "discount_pct": 44,
+      "coupon": "",
+      "store": "mercadolivre",
+      "store_label": "Mercado Livre",
+      "category": "other",
+      "thumbnail": "https://http2.mlstatic.com/D_NQ_NP_664417-MLA98124828149_112025-O.webp",
+      "affiliate_url": "https://meli.la/2bncktD",
+      "published_at": "2026-11-27T00:47:30.193451+00:00"
+    },
     {
       "id": "1955",
       "item_id": "MLB77715684",
@@ -831,21 +876,6 @@
       "published_at": "2026-11-25T02:33:08.361867+00:00"
     },
     {
-      "id": "1752",
-      "item_id": "MLB18725310",
-      "title": "Creatina Soldiers Nutrition Em Pó Sem Sabor X 1kg",
-      "price": 68.9,
-      "original_price": 99.9,
-      "discount_pct": 31,
-      "coupon": "",
-      "store": "mercadolivre",
-      "store_label": "Mercado Livre",
-      "category": "other",
-      "thumbnail": "https://http2.mlstatic.com/D_NQ_NP_688379-MLB118205018580_102026-O.webp",
-      "affiliate_url": "https://meli.la/2apkcr7",
-      "published_at": "2026-11-25T02:27:26.262158+00:00"
-    },
-    {
       "id": "1750",
       "item_id": "MLB41630037",
       "title": "Body Splash Ilía Tradicional Natura Colônia 200ml Volume Da Unidade 200 Ml",
@@ -934,36 +964,6 @@
       "thumbnail": "https://http2.mlstatic.com/D_NQ_NP_651752-MLA95643261450_102025-O.webp",
       "affiliate_url": "https://meli.la/2ZG2KgN",
       "published_at": "2026-11-25T01:22:16.366665+00:00"
-    },
-    {
-      "id": "1742",
-      "item_id": "AMZNB0F46GNC77",
-      "title": "Cadeira Camping Dobrável de Metal com Bolsa e Porta Copos 120Kg (Preto)",
-      "price": 46.75,
-      "original_price": 65.6,
-      "discount_pct": 29,
-      "coupon": "",
-      "store": "amazon",
-      "store_label": "Amazon",
-      "category": "other",
-      "thumbnail": "https://m.media-amazon.com/images/W/BW_MEDIAX_AVIF_MEASUREMENT_1306696-T4/images/I/61exJW088sL._AC_SL1254_.jpg",
-      "affiliate_url": "https://www.amazon.com.br/dp/B0F46GNC77?tag=willjsantana-20",
-      "published_at": "2026-11-25T01:06:57.043501+00:00"
-    },
-    {
-      "id": "1741",
-      "item_id": "AMZNB0DZ34WXST",
-      "title": "The Perfect Top Feminino",
-      "price": 95.9,
-      "original_price": 139.0,
-      "discount_pct": 31,
-      "coupon": "",
-      "store": "amazon",
-      "store_label": "Amazon",
-      "category": "other",
-      "thumbnail": "https://m.media-amazon.com/images/W/BW_MEDIAX_AVIF_MEASUREMENT_1306696-T4/images/I/51WVfrDcqYL._AC_SL1100_.jpg",
-      "affiliate_url": "https://www.amazon.com.br/dp/B0DZ34WXST?tag=willjsantana-20",
-      "published_at": "2026-11-25T00:52:08.866838+00:00"
     }
   ]
 }
