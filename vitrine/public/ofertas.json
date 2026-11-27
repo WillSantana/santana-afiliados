@@ -1,10 +1,40 @@
 {
-  "generated_at": "2026-11-27T18:11:24.386167+00:00",
+  "generated_at": "2026-11-27T18:46:50.796263+00:00",
   "max_age_hours": 48,
   "vip_group_name": "Garimpo de Ofertas",
   "vip_invite_link": "https://chat.whatsapp.com/KZdtfAoUgzlImAVvrT8euC",
-  "total": 65,
+  "total": 64,
   "offers": [
+    {
+      "id": "2071",
+      "item_id": "MLB18925150",
+      "title": "Tanquinho Lavadora Semi Automática Colormaq Ecomax Lcs 20kg Cor Prata",
+      "price": 543.0,
+      "original_price": 970.43,
+      "discount_pct": 44,
+      "coupon": "",
+      "store": "mercadolivre",
+      "store_label": "Mercado Livre",
+      "category": "other",
+      "thumbnail": "https://http2.mlstatic.com/D_NQ_NP_745557-MLA99491668166_112025-O.webp",
+      "affiliate_url": "https://meli.la/141ZPs7",
+      "published_at": "2026-11-27T18:36:28.423659+00:00"
+    },
+    {
+      "id": "2064",
+      "item_id": "MLB31001462",
+      "title": "Kit 12 Utensílios De Cozinha Em Silicone Cabo Madeira Antiderrapante Resistentes Ao Calor Antiaderentes Ideal Para Panelas E Preparos Completos Ponte Lar Utilidades",
+      "price": 39.8,
+      "original_price": 69.0,
+      "discount_pct": 42,
+      "coupon": "",
+      "store": "mercadolivre",
+      "store_label": "Mercado Livre",
+      "category": "other",
+      "thumbnail": "https://http2.mlstatic.com/D_NQ_NP_741528-MLA111157466370_052026-O.webp",
+      "affiliate_url": "https://meli.la/2fwZY53",
+      "published_at": "2026-11-27T18:17:06.989889+00:00"
+    },
     {
       "id": "2066",
       "item_id": "AMZNB0F3LTWYS5",
@@ -18,7 +48,7 @@
       "category": "other",
       "thumbnail": "https://m.media-amazon.com/images/W/BW_MEDIAX_AVIF_MEASUREMENT_1306696-T4/images/I/51nStwLekjL._AC_SL1080_.jpg",
       "affiliate_url": "https://www.amazon.com.br/dp/B0F3LTWYS5?tag=willjsantana-20",
-      "published_at": "2026-11-27T18:11:24.376431+00:00"
+      "published_at": "2026-11-27T18:11:41.430336+00:00"
     },
     {
       "id": "2058",
@@ -934,51 +964,6 @@
       "thumbnail": "https://http2.mlstatic.com/D_NQ_NP_893236-MLA109232002618_042026-O.webp",
       "affiliate_url": "https://meli.la/33EVwV3",
       "published_at": "2026-11-25T20:01:55.548899+00:00"
-    },
-    {
-      "id": "1859",
-      "item_id": "MLB76198292",
-      "title": "Teclado Mecanico Gamer Sem Fio Wireless Tri Mode Bluetooth 2.4g Hot Swap Switch Dream Rgb Dareu Ek F75 Pro Cloudy Aqua",
-      "price": 324.99,
-      "original_price": null,
-      "discount_pct": 0,
-      "coupon": "ELETROTECHMELI",
-      "store": "mercadolivre",
-      "store_label": "Mercado Livre",
-      "category": "other",
-      "thumbnail": "https://http2.mlstatic.com/D_NQ_NP_965386-MLA114105604704_082026-O.webp",
-      "affiliate_url": "https://meli.la/1Nsf3m2",
-      "published_at": "2026-11-25T18:33:20.181805+00:00"
-    },
-    {
-      "id": "1862",
-      "item_id": "MLB46189259",
-      "title": "Parafusadeira e Furadeira WF12K3.2 Bateria 12V WAP",
-      "price": 109.65,
-      "original_price": 196.0,
-      "discount_pct": 44,
-      "coupon": "",
-      "store": "mercadolivre",
-      "store_label": "Mercado Livre",
-      "category": "other",
-      "thumbnail": "https://http2.mlstatic.com/D_NQ_NP_804305-MLA119589286173_102026-O.webp",
-      "affiliate_url": "https://meli.la/1v6r4Lw",
-      "published_at": "2026-11-25T18:28:25.823726+00:00"
-    },
-    {
-      "id": "1857",
-      "item_id": "MLB51856295",
-      "title": "Forno Elétrico Black+decker 9 Litros Preto",
-      "price": 227.9,
-      "original_price": 406.01,
-      "discount_pct": 44,
-      "coupon": "MELIAGORA",
-      "store": "mercadolivre",
-      "store_label": "Mercado Livre",
-      "category": "other",
-      "thumbnail": "https://http2.mlstatic.com/D_NQ_NP_756394-MLA99447654260_112025-O.webp",
-      "affiliate_url": "https://meli.la/1uLRxN3",
-      "published_at": "2026-11-25T18:23:15.658203+00:00"
     }
   ]
 }
