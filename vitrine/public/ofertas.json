@@ -1,10 +1,25 @@
 {
-  "generated_at": "2026-11-27T01:51:31.912682+00:00",
+  "generated_at": "2026-11-27T02:23:15.597999+00:00",
   "max_age_hours": 48,
   "vip_group_name": "Garimpo de Ofertas",
   "vip_invite_link": "https://chat.whatsapp.com/KZdtfAoUgzlImAVvrT8euC",
-  "total": 65,
+  "total": 62,
   "offers": [
+    {
+      "id": "1977",
+      "item_id": "MLB53410760",
+      "title": "Processador Amd Ryzen 7 5700x Oem Sem Cooler",
+      "price": 1075.5,
+      "original_price": null,
+      "discount_pct": 0,
+      "coupon": "TECHOFF",
+      "store": "mercadolivre",
+      "store_label": "Mercado Livre",
+      "category": "other",
+      "thumbnail": "https://http2.mlstatic.com/D_NQ_NP_860376-MLA114197427868_082026-O.webp",
+      "affiliate_url": "https://meli.la/1xmSm7q",
+      "published_at": "2026-11-27T02:10:36.654903+00:00"
+    },
     {
       "id": "1768",
       "item_id": "AMZNB0CP31L73X",
@@ -18,7 +33,7 @@
       "category": "other",
       "thumbnail": "https://m.media-amazon.com/images/W/BW_MEDIAX_AVIF_MEASUREMENT_1306696-T4/images/I/71STno2PC1L._AC_SL1500_.jpg",
       "affiliate_url": "https://www.amazon.com.br/dp/B0CP31L73X?tag=willjsantana-20",
-      "published_at": "2026-11-27T01:51:31.903535+00:00"
+      "published_at": "2026-11-27T01:51:47.844355+00:00"
     },
     {
       "id": "1766",
@@ -919,66 +934,6 @@
       "thumbnail": "https://http2.mlstatic.com/D_NQ_NP_748152-MLA96322082514_102025-O.webp",
       "affiliate_url": "https://meli.la/11NDt3m",
       "published_at": "2026-11-25T02:33:08.361867+00:00"
-    },
-    {
-      "id": "1750",
-      "item_id": "MLB41630037",
-      "title": "Body Splash Ilía Tradicional Natura Colônia 200ml Volume Da Unidade 200 Ml",
-      "price": 55.0,
-      "original_price": 92.9,
-      "discount_pct": 41,
-      "coupon": "",
-      "store": "mercadolivre",
-      "store_label": "Mercado Livre",
-      "category": "other",
-      "thumbnail": "https://http2.mlstatic.com/D_NQ_NP_685570-MLA84835004429_052025-O.webp",
-      "affiliate_url": "https://meli.la/1GxwFNX",
-      "published_at": "2026-11-25T02:15:10.602230+00:00"
-    },
-    {
-      "id": "1751",
-      "item_id": "MLB24006586",
-      "title": "Headset Gamer Branco E Roxo Havit H2002d",
-      "price": 169.74,
-      "original_price": 319.0,
-      "discount_pct": 47,
-      "coupon": "",
-      "store": "mercadolivre",
-      "store_label": "Mercado Livre",
-      "category": "other",
-      "thumbnail": "https://http2.mlstatic.com/D_NQ_NP_902430-MLA99975527909_112025-O.webp",
-      "affiliate_url": "https://meli.la/1gf1TQA",
-      "published_at": "2026-11-25T02:11:35.734899+00:00"
-    },
-    {
-      "id": "1747",
-      "item_id": "MLB55899349",
-      "title": "Pistola De Pintura E Pulverizadora Elétrica Portátil Hvlp 1.250l C/5 Bicos E Acessórios 600w Tpp150 The Black Tools",
-      "price": 189.9,
-      "original_price": 299.9,
-      "discount_pct": 37,
-      "coupon": "",
-      "store": "mercadolivre",
-      "store_label": "Mercado Livre",
-      "category": "other",
-      "thumbnail": "https://http2.mlstatic.com/D_NQ_NP_987172-MLA115958176971_082026-O.webp",
-      "affiliate_url": "https://meli.la/2zxbLCc",
-      "published_at": "2026-11-25T01:57:08.931609+00:00"
-    },
-    {
-      "id": "1748",
-      "item_id": "AMZNB0DXR7GNWJ",
-      "title": "Apple iPhone 16e de 128 GB — Preto",
-      "price": 2998.8,
-      "original_price": 5799.0,
-      "discount_pct": 48,
-      "coupon": "",
-      "store": "amazon",
-      "store_label": "Amazon",
-      "category": "other",
-      "thumbnail": "https://m.media-amazon.com/images/W/BW_MEDIAX_AVIF_MEASUREMENT_1306696-T4/images/I/412RWxKFt8L._AC_SL1000_.jpg",
-      "affiliate_url": "https://www.amazon.com.br/dp/B0DXR7GNWJ?tag=willjsantana-20",
-      "published_at": "2026-11-25T01:54:20.892899+00:00"
     }
   ]
 }
