@@ -1,10 +1,70 @@
 {
-  "generated_at": "2026-11-27T23:33:56.212858+00:00",
+  "generated_at": "2026-11-28T00:14:42.601258+00:00",
   "max_age_hours": 48,
   "vip_group_name": "Garimpo de Ofertas",
   "vip_invite_link": "https://chat.whatsapp.com/KZdtfAoUgzlImAVvrT8euC",
-  "total": 78,
+  "total": 81,
   "offers": [
+    {
+      "id": "2171",
+      "item_id": "MLB62801003",
+      "title": "Kit 10 Pendentes Pelúcia Enfeite Árvore Natal Pingentes Papai Noel Grande 16cm Decoração Luvinco",
+      "price": 37.99,
+      "original_price": 84.9,
+      "discount_pct": 55,
+      "coupon": "",
+      "store": "mercadolivre",
+      "store_label": "Mercado Livre",
+      "category": "other",
+      "thumbnail": "https://http2.mlstatic.com/D_NQ_NP_823051-MLA118633342896_102026-O.webp",
+      "affiliate_url": "https://meli.la/2skXA3q",
+      "published_at": "2026-11-28T00:05:18.972277+00:00"
+    },
+    {
+      "id": "2174",
+      "item_id": "MLB2069850104",
+      "title": "Saída Praia Curta Vestido Decote Trabalhada Moda Blogueira",
+      "price": 22.72,
+      "original_price": 49.9,
+      "discount_pct": 54,
+      "coupon": "",
+      "store": "mercadolivre",
+      "store_label": "Mercado Livre",
+      "category": "other",
+      "thumbnail": "https://http2.mlstatic.com/D_NQ_NP_697035-MLB94645938122_102025-O-saida-praia-curta-vestido-decote-trabalhada-moda-blogueira.webp",
+      "affiliate_url": "https://meli.la/1yrkMHN",
+      "published_at": "2026-11-27T23:58:33.653570+00:00"
+    },
+    {
+      "id": "2167",
+      "item_id": "MLB40183218",
+      "title": "Whey Protein Concentrado 1kg Chocolate Branco Dark Lab",
+      "price": 136.9,
+      "original_price": 349.9,
+      "discount_pct": 61,
+      "coupon": "",
+      "store": "mercadolivre",
+      "store_label": "Mercado Livre",
+      "category": "other",
+      "thumbnail": "https://http2.mlstatic.com/D_NQ_NP_941748-MLA99933256895_112025-O.webp",
+      "affiliate_url": "https://meli.la/2SPUAiJ",
+      "published_at": "2026-11-27T23:46:40.332759+00:00"
+    },
+    {
+      "id": "2162",
+      "item_id": "MLB46220740",
+      "title": "Cadeira Escritório Ergonômica Genebra B500 NR-17 Luvinco Cor Preto Com Suporte Lombar Estofado Mesh",
+      "price": 497.9,
+      "original_price": 906.53,
+      "discount_pct": 45,
+      "coupon": "MELICE8",
+      "store": "mercadolivre",
+      "store_label": "Mercado Livre",
+      "category": "other",
+      "thumbnail": "https://http2.mlstatic.com/D_NQ_NP_764756-MLA96570589252_112025-O.webp",
+      "affiliate_url": "https://meli.la/14Pw2JL",
+      "published_at": "2026-11-27T23:36:42.633974+00:00"
+    },
     {
       "id": "2155",
       "item_id": "MLB41221309",
@@ -1159,21 +1219,6 @@
       "thumbnail": "https://http2.mlstatic.com/D_NQ_NP_695558-MLA119937437423_102026-O.webp",
       "affiliate_url": "https://meli.la/2MQUFBf",
       "published_at": "2026-11-26T23:19:11.396996+00:00"
-    },
-    {
-      "id": "1940",
-      "item_id": "MLB80138896",
-      "title": "Teclado Magnético Gamer 60% 8000hz Rt0,01 Barra Rgb Titorion Preto Português Brasil",
-      "price": 332.4,
-      "original_price": 499.9,
-      "discount_pct": 34,
-      "coupon": "ELETROTECHMELI",
-      "store": "mercadolivre",
-      "store_label": "Mercado Livre",
-      "category": "other",
-      "thumbnail": "https://http2.mlstatic.com/D_NQ_NP_959593-MLA120625502926_112026-O.webp",
-      "affiliate_url": "https://meli.la/2XHEnE6",
-      "published_at": "2026-11-25T23:35:43.302863+00:00"
     }
   ]
 }
