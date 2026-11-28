@@ -1,10 +1,25 @@
 {
-  "generated_at": "2026-11-28T02:02:35.790612+00:00",
+  "generated_at": "2026-11-28T02:03:06.486684+00:00",
   "max_age_hours": 48,
   "vip_group_name": "Garimpo de Ofertas",
   "vip_invite_link": "https://chat.whatsapp.com/KZdtfAoUgzlImAVvrT8euC",
-  "total": 97,
+  "total": 98,
   "offers": [
+    {
+      "id": "2224",
+      "item_id": "AMZNB004QEKTSO",
+      "title": "Whisky Johnnie Walker Black Label 12 Anos 1L",
+      "price": 114.99,
+      "original_price": 222.9,
+      "discount_pct": 48,
+      "coupon": "",
+      "store": "amazon",
+      "store_label": "Amazon",
+      "category": "other",
+      "thumbnail": "https://m.media-amazon.com/images/W/BW_MEDIAX_AVIF_MEASUREMENT_1306696-T4/images/I/51iC0RL7yIL._AC_SL1000_.jpg",
+      "affiliate_url": "https://www.amazon.com.br/dp/B004QEKTSO?tag=willjsantana-20",
+      "published_at": "2026-11-28T02:03:06.465776+00:00"
+    },
     {
       "id": "2209",
       "item_id": "MLB19694427",
