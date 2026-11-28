@@ -1,10 +1,25 @@
 {
-  "generated_at": "2026-11-28T15:10:33.705521+00:00",
+  "generated_at": "2026-11-28T15:12:23.214579+00:00",
   "max_age_hours": 48,
   "vip_group_name": "Garimpo de Ofertas",
   "vip_invite_link": "https://chat.whatsapp.com/KZdtfAoUgzlImAVvrT8euC",
-  "total": 113,
+  "total": 114,
   "offers": [
+    {
+      "id": "2255",
+      "item_id": "AMZNB0GQWK8Y7F",
+      "title": "Apple iPhone 17 de 256 GB — Branco",
+      "price": 5390.28,
+      "original_price": 7999.0,
+      "discount_pct": 33,
+      "coupon": "",
+      "store": "amazon",
+      "store_label": "Amazon",
+      "category": "other",
+      "thumbnail": "https://m.media-amazon.com/images/W/BW_MEDIAX_AVIF_MEASUREMENT_1306696-T4/images/I/41i8XYawSOL._AC_SL1000_.jpg",
+      "affiliate_url": "https://www.amazon.com.br/dp/B0GQWK8Y7F?tag=willjsantana-20",
+      "published_at": "2026-11-28T15:12:23.088945+00:00"
+    },
     {
       "id": "2246",
       "item_id": "MLB21361292",
