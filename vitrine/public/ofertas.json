@@ -1,10 +1,25 @@
 {
-  "generated_at": "2026-11-28T19:05:36.221188+00:00",
+  "generated_at": "2026-11-28T19:08:37.088923+00:00",
   "max_age_hours": 48,
   "vip_group_name": "Garimpo de Ofertas",
   "vip_invite_link": "https://chat.whatsapp.com/KZdtfAoUgzlImAVvrT8euC",
-  "total": 119,
+  "total": 120,
   "offers": [
+    {
+      "id": "2274",
+      "item_id": "AMZNB0H9C66PJR",
+      "title": "Tênis ASICS Gel-Shinobi 3 Masculino",
+      "price": 265.9,
+      "original_price": 459.99,
+      "discount_pct": 42,
+      "coupon": "",
+      "store": "amazon",
+      "store_label": "Amazon",
+      "category": "other",
+      "thumbnail": "https://m.media-amazon.com/images/W/BW_MEDIAX_AVIF_MEASUREMENT_1306696-T4/images/I/51DO7LjvIhL._AC_SL1000_.jpg",
+      "affiliate_url": "https://www.amazon.com.br/dp/B0H9C66PJR?tag=willjsantana-20",
+      "published_at": "2026-11-28T19:08:37.075302+00:00"
+    },
     {
       "id": "2261",
       "item_id": "MLB29023672",
