@@ -1,10 +1,25 @@
 {
-  "generated_at": "2026-11-28T15:12:23.214579+00:00",
+  "generated_at": "2026-11-28T17:32:33.355301+00:00",
   "max_age_hours": 48,
   "vip_group_name": "Garimpo de Ofertas",
   "vip_invite_link": "https://chat.whatsapp.com/KZdtfAoUgzlImAVvrT8euC",
-  "total": 114,
+  "total": 115,
   "offers": [
+    {
+      "id": "2253",
+      "item_id": "MLB62705555",
+      "title": "Kit C/2 Travesseiros Luxo Matelado Fibra Antialérgica 50x70",
+      "price": 60.79,
+      "original_price": 109.99,
+      "discount_pct": 45,
+      "coupon": "",
+      "store": "mercadolivre",
+      "store_label": "Mercado Livre",
+      "category": "other",
+      "thumbnail": "https://http2.mlstatic.com/D_NQ_NP_628480-MLA118655411158_102026-O.webp",
+      "affiliate_url": "https://meli.la/2ZqrKhD",
+      "published_at": "2026-11-28T16:34:13.898706+00:00"
+    },
     {
       "id": "2255",
       "item_id": "AMZNB0GQWK8Y7F",
@@ -18,7 +33,7 @@
       "category": "other",
       "thumbnail": "https://m.media-amazon.com/images/W/BW_MEDIAX_AVIF_MEASUREMENT_1306696-T4/images/I/41i8XYawSOL._AC_SL1000_.jpg",
       "affiliate_url": "https://www.amazon.com.br/dp/B0GQWK8Y7F?tag=willjsantana-20",
-      "published_at": "2026-11-28T15:12:23.088945+00:00"
+      "published_at": "2026-11-28T16:06:26.077824+00:00"
     },
     {
       "id": "2246",
