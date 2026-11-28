@@ -1,10 +1,25 @@
 {
-  "generated_at": "2026-11-28T02:03:06.486684+00:00",
+  "generated_at": "2026-11-28T02:33:47.367307+00:00",
   "max_age_hours": 48,
   "vip_group_name": "Garimpo de Ofertas",
   "vip_invite_link": "https://chat.whatsapp.com/KZdtfAoUgzlImAVvrT8euC",
-  "total": 98,
+  "total": 99,
   "offers": [
+    {
+      "id": "2214",
+      "item_id": "MLB28530314",
+      "title": "Chave De Impacto A Bateria 21V 1/2\" Pol 2400 Rpm Bivolt Com Acessórios E Maleta The Black Tools",
+      "price": 245.95,
+      "original_price": 513.39,
+      "discount_pct": 52,
+      "coupon": "",
+      "store": "mercadolivre",
+      "store_label": "Mercado Livre",
+      "category": "other",
+      "thumbnail": "https://http2.mlstatic.com/D_NQ_NP_652182-MLA113971474078_072026-O.webp",
+      "affiliate_url": "https://meli.la/13QMwsk",
+      "published_at": "2026-11-28T02:09:28.853966+00:00"
+    },
     {
       "id": "2224",
       "item_id": "AMZNB004QEKTSO",
@@ -18,7 +33,7 @@
       "category": "other",
       "thumbnail": "https://m.media-amazon.com/images/W/BW_MEDIAX_AVIF_MEASUREMENT_1306696-T4/images/I/51iC0RL7yIL._AC_SL1000_.jpg",
       "affiliate_url": "https://www.amazon.com.br/dp/B004QEKTSO?tag=willjsantana-20",
-      "published_at": "2026-11-28T02:03:06.465776+00:00"
+      "published_at": "2026-11-28T02:03:23.644097+00:00"
     },
     {
       "id": "2209",
