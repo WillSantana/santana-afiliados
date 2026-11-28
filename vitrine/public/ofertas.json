@@ -1,10 +1,25 @@
 {
-  "generated_at": "2026-11-28T01:16:41.806623+00:00",
+  "generated_at": "2026-11-28T01:26:34.016061+00:00",
   "max_age_hours": 48,
   "vip_group_name": "Garimpo de Ofertas",
   "vip_invite_link": "https://chat.whatsapp.com/KZdtfAoUgzlImAVvrT8euC",
-  "total": 92,
+  "total": 93,
   "offers": [
+    {
+      "id": "2197",
+      "item_id": "MLB80864726",
+      "title": "Cortador Fatiador Ralador De Legumes Frutas Vegetais Triturador Picador Manual 16 Peças Para Cozinha Mandolin Inox Cinza-escuro",
+      "price": 37.78,
+      "original_price": 59.9,
+      "discount_pct": 37,
+      "coupon": "",
+      "store": "mercadolivre",
+      "store_label": "Mercado Livre",
+      "category": "other",
+      "thumbnail": "https://http2.mlstatic.com/D_NQ_NP_611990-MLA122182145281_112026-O.webp",
+      "affiliate_url": "https://meli.la/2FJxs5q",
+      "published_at": "2026-11-28T01:22:44.705929+00:00"
+    },
     {
       "id": "2200",
       "item_id": "AMZNB0B7278DHZ",
@@ -18,7 +33,7 @@
       "category": "other",
       "thumbnail": "https://m.media-amazon.com/images/W/BW_MEDIAX_AVIF_MEASUREMENT_1306696-T4/images/I/51nlF3BHjaL._AC_SL1000_.jpg",
       "affiliate_url": "https://www.amazon.com.br/dp/B0B7278DHZ?tag=willjsantana-20",
-      "published_at": "2026-11-28T01:16:41.791561+00:00"
+      "published_at": "2026-11-28T01:17:00.235262+00:00"
     },
     {
       "id": "2192",
